@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://fa23bcs044_db_user:06BPuRDJ9SKhkJ3b@cluster044.cnwpznd.mongodb.net/?appName=Cluster044")
+      - GEMINI_API_KEY=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
+      - SECRET_KEY=341783ef1bf4d566decfd13e2f13ddebb2723771e003ed79a7e3a92378b9d429

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobTrack — Mock Interview</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d0d0f;--surface:#16161a;--surface2:#1e1e24;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);--text:#e8e8ec;--muted:#6b6b7a;--accent:#c8f064;--offer:#4cd964;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;display:flex;flex-direction:column;}
+  header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .logo{font-family:'DM Serif Display',serif;font-size:22px;}.logo span{color:var(--accent);}
+  .job-info{font-size:13px;color:var(--muted);font-family:'DM Mono',monospace;}
+  .back-btn{padding:7px 14px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:none;}
+  .back-btn:hover{border-color:var(--border2);color:var(--text);}
+  .chat-wrap{flex:1;max-width:780px;width:100%;margin:0 auto;display:flex;flex-direction:column;padding:0 24px;}
+  .start-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px;text-align:center;padding:40px 0;}
+  .start-title{font-family:'DM Serif Display',serif;font-size:28px;}
+  .start-sub{font-size:14px;color:var(--muted);max-width:480px;line-height:1.6;}
+  .start-tips{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;text-align:left;width:100%;max-width:500px;}
+  .tip-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:'DM Mono',monospace;margin-bottom:10px;}
+  .tip-item{font-size:13px;color:var(--text);padding:4px 0;line-height:1.5;}
+  .btn-start{padding:14px 36px;background:var(--accent);color:#0d0d0f;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;transition:opacity 0.15s;}
+  .btn-start:hover{opacity:0.88;}
+  .chat-area{flex:1;overflow-y:auto;padding:24px 0;display:flex;flex-direction:column;gap:16px;}
+  .msg{display:flex;gap:12px;max-width:85%;}
+  .msg.ai{align-self:flex-start;}
+  .msg.user{align-self:flex-end;flex-direction:row-reverse;}
+  .msg-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;font-weight:500;}
+  .msg.ai .msg-avatar{background:var(--surface2);border:1px solid var(--border);color:var(--accent);}
+  .msg.user .msg-avatar{background:rgba(200,240,100,0.15);border:1px solid rgba(200,240,100,0.3);color:var(--accent);}
+  .msg-bubble{padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.65;}
+  .msg.ai .msg-bubble{background:var(--surface);border:1px solid var(--border);color:var(--text);}
+  .msg.user .msg-bubble{background:rgba(200,240,100,0.1);border:1px solid rgba(200,240,100,0.2);color:var(--text);}
+  .msg-bubble strong{color:var(--accent);}
+  .msg-bubble em{color:var(--offer);}
+  .typing{display:flex;gap:5px;align-items:center;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;}
+  .typing span{width:7px;height:7px;background:var(--muted);border-radius:50%;animation:blink 1.2s infinite;}
+  .typing span:nth-child(2){animation-delay:0.2s;}.typing span:nth-child(3){animation-delay:0.4s;}
+  @keyframes blink{0%,80%,100%{opacity:0.2}40%{opacity:1}}
+  .input-area{padding:16px 0 24px;display:flex;gap:10px;flex-shrink:0;}
+  textarea.answer-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;resize:none;min-height:54px;max-height:160px;transition:border-color 0.15s;line-height:1.5;}
+  textarea.answer-box:focus{border-color:var(--accent);}
+  .btn-send{padding:0 22px;background:var(--accent);color:#0d0d0f;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;flex-shrink:0;}
+  .btn-send:hover{opacity:0.88;}
+  .btn-send:disabled{opacity:0.4;cursor:not-allowed;}
+  .ended-notice{text-align:center;padding:16px;font-size:13px;color:var(--muted);border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Job<span>Track</span></div>
+  <div class="job-info">{{ job.company }} — {{ job.role }}</div>
+  <a href="/dashboard" class="back-btn">← Dashboard</a>
+</header>
+
+<div class="chat-wrap">
+  <div id="start-screen" class="start-screen">
+    <div class="start-title">AI Mock Interview</div>
+    <div class="start-sub">Gemini will act as a recruiter at <strong>{{ job.company }}</strong> and interview you for the <strong>{{ job.role }}</strong> role. You'll get 5 questions and a Confidence Score at the end.</div>
+    <div class="start-tips">
+      <div class="tip-title">Tips for the best practice</div>
+      <div class="tip-item">→ Answer as if this is the real interview</div>
+      <div class="tip-item">→ Use the STAR method (Situation, Task, Action, Result)</div>
+      <div class="tip-item">→ Take your time — type complete answers</div>
+      <div class="tip-item">→ Read the feedback at the end carefully</div>
+    </div>
+    <button class="btn-start" onclick="startInterview()">Start Interview</button>
+  </div>
+
+  <div id="chat-area" class="chat-area" style="display:none;"></div>
+
+  <div id="input-area" class="input-area" style="display:none;">
+    <textarea class="answer-box" id="answer-box" placeholder="Type your answer here..." rows="2"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAnswer();}"></textarea>
+    <button class="btn-send" id="send-btn" onclick="sendAnswer()">Send</button>
+  </div>
+  <div id="ended-notice" class="ended-notice" style="display:none;">
+    Interview complete — <a href="/debrief/{{ job._id }}" style="color:var(--accent);">Write your debrief now</a>
+  </div>
+</div>
+
+<script>
+const COMPANY="{{ job.company }}", ROLE="{{ job.role }}";
+let history=[], qCount=0, ended=false;
+
+function addMsg(role, text){
+  const chat=document.getElementById('chat-area');
+  const isAI=role==='ai';
+  const div=document.createElement('div');
+  div.className=`msg ${role}`;
+  div.innerHTML=`<div class="msg-avatar">${isAI?'R':'Y'}</div><div class="msg-bubble">${formatText(text)}</div>`;
+  chat.appendChild(div);
+  chat.scrollTop=chat.scrollHeight;
+  history.push({role,text});
+}
+
+function showTyping(){
+  const chat=document.getElementById('chat-area');
+  const t=document.createElement('div');
+  t.className='msg ai';t.id='typing-indicator';
+  t.innerHTML='<div class="msg-avatar">R</div><div class="typing"><span></span><span></span><span></span></div>';
+  chat.appendChild(t);
+  chat.scrollTop=chat.scrollHeight;
+}
+
+function removeTyping(){const t=document.getElementById('typing-indicator');if(t)t.remove();}
+
+function formatText(t){
+  return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+           .replace(/\*(.*?)\*/g,'<em>$1</em>')
+           .replace(/\n/g,'<br>');
+}
+
+async function startInterview(){
+  document.getElementById('start-screen').style.display='none';
+  document.getElementById('chat-area').style.display='flex';
+  document.getElementById('input-area').style.display='flex';
+  showTyping();
+  const res=await fetch('/api/ai/interview/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({company:COMPANY,role:ROLE})});
+  const data=await res.json();
+  removeTyping();
+  addMsg('ai',data.result);
+  qCount=1;
+  document.getElementById('answer-box').focus();
+}
+
+async function sendAnswer(){
+  if(ended)return;
+  const box=document.getElementById('answer-box');
+  const answer=box.value.trim();
+  if(!answer)return;
+  box.value='';
+  document.getElementById('send-btn').disabled=true;
+  addMsg('user',answer);
+  showTyping();
+  const res=await fetch('/api/ai/interview/respond',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({company:COMPANY,role:ROLE,history,answer,question_count:qCount})});
+  const data=await res.json();
+  removeTyping();
+  addMsg('ai',data.result);
+  qCount++;
+  document.getElementById('send-btn').disabled=false;
+  if(qCount>5){
+    ended=true;
+    document.getElementById('input-area').style.display='none';
+    document.getElementById('ended-notice').style.display='block';
+  } else {
+    document.getElementById('answer-box').focus();
+  }
+}
+</script>
+</body>
+</html>

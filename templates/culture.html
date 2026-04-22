@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobTrack — Culture Fit</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d0d0f;--surface:#16161a;--surface2:#1e1e24;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);--text:#e8e8ec;--muted:#6b6b7a;--accent:#c8f064;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;border-bottom:1px solid var(--border);}
+  .logo{font-family:'DM Serif Display',serif;font-size:22px;}.logo span{color:var(--accent);}
+  .back-btn{padding:7px 14px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:none;}
+  .back-btn:hover{border-color:var(--border2);color:var(--text);}
+  main{max-width:780px;margin:0 auto;padding:36px 24px;}
+  .page-title{font-family:'DM Serif Display',serif;font-size:28px;margin-bottom:4px;}
+  .company-tag{display:inline-block;font-family:'DM Mono',monospace;font-size:12px;padding:4px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;color:var(--muted);margin-bottom:8px;}
+  .page-sub{font-size:13px;color:var(--muted);margin-bottom:32px;line-height:1.6;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+  .form-group{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .form-group.full{grid-column:1/-1;}
+  .form-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:'DM Mono',monospace;}
+  .form-hint{font-size:12px;color:var(--muted);font-style:italic;}
+  textarea{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;width:100%;resize:vertical;min-height:100px;line-height:1.6;transition:border-color 0.15s;}
+  textarea:focus{border-color:var(--accent);}
+  .btn-analyze{width:100%;padding:13px;background:var(--accent);color:#0d0d0f;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;margin-top:8px;transition:opacity 0.15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-analyze:hover{opacity:0.88;}
+  .btn-analyze:disabled{opacity:0.5;cursor:not-allowed;}
+  .spinner{width:16px;height:16px;border:2px solid rgba(0,0,0,0.2);border-top-color:#0d0d0f;border-radius:50%;animation:spin 0.7s linear infinite;display:none;}
+  .spinner.show{display:block;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .result-area{margin-top:32px;background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:28px;display:none;}
+  .result-area.show{display:block;}
+  .result-title{font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:18px;color:var(--text);}
+  .result-content{font-size:14px;line-height:1.8;color:var(--text);white-space:pre-wrap;}
+  .result-content h2{font-family:'DM Serif Display',serif;font-size:17px;color:var(--accent);margin:20px 0 8px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+  .result-content ul,.result-content ol{padding-left:20px;margin:8px 0;}
+  .result-content li{margin-bottom:4px;}
+  .result-content strong{color:var(--accent);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Job<span>Track</span></div>
+  <a href="/dashboard" class="back-btn">← Dashboard</a>
+</header>
+<main>
+  <div class="company-tag">{{ job.company }} — {{ job.role }}</div>
+  <div class="page-title">Culture Fit Analyzer</div>
+  <div class="page-sub">Paste the job description and About Us text below. Gemini will analyze the company culture, rate your fit, and give you a Language Mirror — specific keywords to use in your interview.</div>
+
+  <div class="two-col">
+    <div class="form-group full">
+      <div class="form-label">Job Description</div>
+      <div class="form-hint">Paste the full job posting text here</div>
+      <textarea id="jd" rows="6" placeholder="Paste the job description here..."></textarea>
+    </div>
+    <div class="form-group full">
+      <div class="form-label">About Us / Company Culture</div>
+      <div class="form-hint">Paste from the company website's About or Culture page</div>
+      <textarea id="about" rows="5" placeholder="Paste the About Us or culture page text here..."></textarea>
+    </div>
+    <div class="form-group full">
+      <div class="form-label">Your Work Preferences</div>
+      <div class="form-hint">How do you like to work? Be honest — this helps the AI give better advice.</div>
+      <textarea id="prefs" rows="3" placeholder="e.g. I prefer collaborative teams, hate micromanagement, love fast-paced environments, value work-life balance, enjoy mentorship..."></textarea>
+    </div>
+  </div>
+
+  <button class="btn-analyze" id="analyze-btn" onclick="analyze()">
+    <div class="spinner" id="spinner"></div>
+    <span id="btn-text">Analyze Culture Fit</span>
+  </button>
+
+  <div class="result-area" id="result-area">
+    <div class="result-title">Analysis Results</div>
+    <div class="result-content" id="result-content"></div>
+  </div>
+</main>
+
+<script>
+const COMPANY="{{ job.company }}", ROLE="{{ job.role }}";
+
+async function analyze(){
+  const jd=document.getElementById('jd').value.trim();
+  const about=document.getElementById('about').value.trim();
+  const prefs=document.getElementById('prefs').value.trim();
+  if(!jd&&!about){alert('Please paste at least the job description or About Us text.');return;}
+
+  const btn=document.getElementById('analyze-btn');
+  btn.disabled=true;
+  document.getElementById('spinner').classList.add('show');
+  document.getElementById('btn-text').textContent='Analyzing...';
+
+  const res=await fetch('/api/ai/culture',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({company:COMPANY,role:ROLE,job_description:jd,about_us:about,user_prefs:prefs})});
+  const data=await res.json();
+
+  btn.disabled=false;
+  document.getElementById('spinner').classList.remove('show');
+  document.getElementById('btn-text').textContent='Analyze Culture Fit';
+
+  const area=document.getElementById('result-area');
+  area.classList.add('show');
+  document.getElementById('result-content').innerHTML=formatResult(data.result);
+  area.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function formatResult(text){
+  return text
+    .replace(/##\s+(.+)/g,'<h2>$1</h2>')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^\s*[-*]\s+(.+)/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+    .replace(/\n{2,}/g,'<br><br>')
+    .replace(/\n/g,'<br>');
+}
+</script>
+</body>
+</html>

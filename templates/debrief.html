@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobTrack — Interview Debrief</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d0d0f;--surface:#16161a;--surface2:#1e1e24;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);--text:#e8e8ec;--muted:#6b6b7a;--accent:#c8f064;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;border-bottom:1px solid var(--border);}
+  .logo{font-family:'DM Serif Display',serif;font-size:22px;}.logo span{color:var(--accent);}
+  .back-btn{padding:7px 16px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;text-decoration:none;display:inline-block;}
+  .back-btn:hover{border-color:var(--border2);color:var(--text);}
+  main{max-width:680px;margin:0 auto;padding:36px 24px;}
+  .page-title{font-family:'DM Serif Display',serif;font-size:28px;margin-bottom:4px;}
+  .page-sub{font-size:13px;color:var(--muted);margin-bottom:32px;}
+  .company-tag{display:inline-block;font-family:'DM Mono',monospace;font-size:12px;padding:4px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;color:var(--muted);margin-bottom:8px;}
+  .form-group{display:flex;flex-direction:column;gap:8px;margin-bottom:22px;}
+  .form-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:'DM Mono',monospace;}
+  .form-hint{font-size:12px;color:var(--muted);font-style:italic;}
+  textarea{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;width:100%;resize:vertical;min-height:80px;line-height:1.6;transition:border-color 0.15s;}
+  textarea:focus{border-color:var(--accent);}
+  .slider-wrap{display:flex;align-items:center;gap:14px;}
+  input[type=range]{flex:1;accent-color:var(--accent);}
+  .slider-val{font-family:'DM Serif Display',serif;font-size:24px;color:var(--accent);min-width:28px;text-align:center;}
+  .slider-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px;}
+  .divider{border:none;border-top:1px solid var(--border);margin:28px 0;}
+  .btn-save{width:100%;padding:13px;background:var(--accent);border:none;border-radius:10px;color:#0d0d0f;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;transition:opacity 0.15s;}
+  .btn-save:hover{opacity:0.88;}
+  .saved-banner{background:rgba(200,240,100,0.1);border:1px solid rgba(200,240,100,0.3);border-radius:10px;padding:14px 18px;font-size:13px;color:var(--accent);margin-bottom:24px;display:none;}
+  .section-title{font-family:'DM Serif Display',serif;font-size:18px;margin-bottom:18px;color:var(--text);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Job<span>Track</span></div>
+  <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+</header>
+<main>
+  <div class="company-tag">{{ job.company }} — {{ job.role }}</div>
+  <div class="page-title">Interview Debrief</div>
+  <div class="page-sub">Capture your thoughts while they're fresh. This builds your personal knowledge base.</div>
+
+  <div class="saved-banner" id="saved-banner">Debrief saved successfully — +XP for Debriefer badge!</div>
+
+  <div class="section-title">What happened</div>
+
+  <div class="form-group">
+    <div class="form-label">What was the hardest question asked?</div>
+    <div class="form-hint">Write the question and how you answered it.</div>
+    <textarea id="hardest_q" rows="3" placeholder="e.g. 'Tell me about a time you failed' — I talked about a project that went over deadline...">{{ existing.hardest_q if existing else '' }}</textarea>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">What did the interviewer seem most excited about?</div>
+    <div class="form-hint">Topics, skills, or answers that got the most follow-up questions.</div>
+    <textarea id="excited_about" rows="2" placeholder="e.g. They lit up when I mentioned my open-source project...">{{ existing.excited_about if existing else '' }}</textarea>
+  </div>
+
+  <hr class="divider">
+  <div class="section-title">Self-assessment</div>
+
+  <div class="form-group">
+    <div class="form-label">What went well?</div>
+    <textarea id="went_well" rows="2" placeholder="e.g. I explained the system design question clearly...">{{ existing.went_well if existing else '' }}</textarea>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">What could have gone better?</div>
+    <textarea id="went_poorly" rows="2" placeholder="e.g. I hesitated too long on the SQL question...">{{ existing.went_poorly if existing else '' }}</textarea>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Follow-up actions</div>
+    <div class="form-hint">Send thank-you email? Research something they mentioned?</div>
+    <textarea id="followup" rows="2" placeholder="e.g. Send thank-you email to Sarah by tomorrow morning...">{{ existing.followup if existing else '' }}</textarea>
+  </div>
+
+  <hr class="divider">
+  <div class="section-title">Ratings</div>
+
+  <div class="form-group">
+    <div class="form-label">Energy level going in (1 = exhausted, 10 = peak state)</div>
+    <div class="slider-wrap">
+      <input type="range" min="1" max="10" value="{{ existing.energy if existing else 7 }}" id="energy" oninput="document.getElementById('energy-val').textContent=this.value">
+      <div class="slider-val" id="energy-val">{{ existing.energy if existing else 7 }}</div>
+    </div>
+    <div class="slider-labels"><span>1 — Exhausted</span><span>10 — Peak</span></div>
+  </div>
+
+  <div class="form-group">
+    <div class="form-label">Overall interview performance (1 = disaster, 10 = nailed it)</div>
+    <div class="slider-wrap">
+      <input type="range" min="1" max="10" value="{{ existing.overall if existing else 5 }}" id="overall" oninput="document.getElementById('overall-val').textContent=this.value">
+      <div class="slider-val" id="overall-val">{{ existing.overall if existing else 5 }}</div>
+    </div>
+    <div class="slider-labels"><span>1 — Disaster</span><span>10 — Nailed it</span></div>
+  </div>
+
+  <button class="btn-save" onclick="saveDebrief()">Save Debrief</button>
+</main>
+
+<script>
+const JOB_ID = "{{ job._id }}";
+
+async function saveDebrief(){
+  const data={
+    hardest_q:     document.getElementById('hardest_q').value,
+    excited_about: document.getElementById('excited_about').value,
+    went_well:     document.getElementById('went_well').value,
+    went_poorly:   document.getElementById('went_poorly').value,
+    followup:      document.getElementById('followup').value,
+    energy:        parseInt(document.getElementById('energy').value),
+    overall:       parseInt(document.getElementById('overall').value),
+  };
+  const res=await fetch(`/api/debrief/${JOB_ID}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  if(res.ok){
+    const b=document.getElementById('saved-banner');
+    b.style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+}
+</script>
+</body>
+</html>

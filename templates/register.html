@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobTrack — Register</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f; --surface: #16161a; --surface2: #1e1e24;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --text: #e8e8ec; --muted: #6b6b7a; --accent: #c8f064;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .card { background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 36px; width: 400px; max-width: 95vw; }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
+  .logo span { color: var(--accent); }
+  .subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-family: 'DM Mono', monospace; }
+  input { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.15s; width: 100%; }
+  input:focus { border-color: var(--accent); }
+  .btn { width: 100%; padding: 11px; background: var(--accent); border: none; border-radius: 8px; color: #0d0d0f; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 8px; transition: opacity 0.15s; }
+  .btn:hover { opacity: 0.88; }
+  .error { background: rgba(255,69,58,0.12); border: 1px solid rgba(255,69,58,0.3); color: #ff453a; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; display: none; }
+  .footer-link { text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted); }
+  .footer-link a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Job<span>Track</span></div>
+  <div class="subtitle">Create your account</div>
+  <div class="error" id="error"></div>
+  <div class="form-group">
+    <label>Username</label>
+    <input type="text" id="username" placeholder="e.g. faizan123">
+  </div>
+  <div class="form-group">
+    <label>Email</label>
+    <input type="email" id="email" placeholder="you@example.com">
+  </div>
+  <div class="form-group">
+    <label>Password</label>
+    <input type="password" id="password" placeholder="Min. 6 characters">
+  </div>
+  <button class="btn" onclick="register()">Create Account</button>
+  <div class="footer-link">Already have an account? <a href="/login">Sign in</a></div>
+</div>
+<script>
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') register(); });
+  async function register() {
+    const username = document.getElementById('username').value.trim();
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const err = document.getElementById('error');
+    err.style.display = 'none';
+    if (!username || !email || !password) { err.textContent = 'Please fill in all fields'; err.style.display = 'block'; return; }
+    const res = await fetch('/api/register', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username, email, password}) });
+    const data = await res.json();
+    if (res.ok) { window.location.href = '/dashboard'; }
+    else { err.textContent = data.error; err.style.display = 'block'; }
+  }
+</script>
+</body>
+</html>
