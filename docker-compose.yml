@@ -1,10 +1,78 @@
 version: "3.9"
+
+# JobTrack — Multi-Service Docker Compose
+# FA23-BCS-044
+# Services: frontend (nginx) + backend (flask) + database (mongodb)
+
 services:
-  web:
-    build: .
-    ports:
-      - "5000:5000"
+
+  # ── SERVICE 1: DATABASE ──────────────────────────────────
+  mongo:
+    build:
+      context: ./mongo-init
+      dockerfile: Dockerfile
+    container_name: jobtrack-mongo
+    restart: always
     environment:
-      - MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://fa23bcs044_db_user:06BPuRDJ9SKhkJ3b@cluster044.cnwpznd.mongodb.net/?appName=Cluster044")
+      MONGO_INITDB_DATABASE: job_tracker
+    volumes:
+      # Persist database data so it survives container restarts
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - jobtrack-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── SERVICE 2: BACKEND ───────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jobtrack-backend
+    restart: always
+    environment:
+      # Use local MongoDB container instead of Atlas
+      - MONGO_URI=mongodb://mongo:27017/job_tracker
       - GEMINI_API_KEY=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
       - SECRET_KEY=341783ef1bf4d566decfd13e2f13ddebb2723771e003ed79a7e3a92378b9d429
+    ports:
+      - "5000:5000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - jobtrack-network
+
+  # ── SERVICE 3: FRONTEND ──────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: jobtrack-frontend
+    restart: always
+    ports:
+      # Public access point — go to localhost:80 in browser
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - jobtrack-network
+
+# ── NETWORK ─────────────────────────────────────────────────
+networks:
+  jobtrack-network:
+    driver: bridge
+    # All 3 containers communicate through this private network
+    # frontend can reach backend by hostname "backend"
+    # backend can reach mongo by hostname "mongo"
+
+# ── VOLUMES ─────────────────────────────────────────────────
+volumes:
+  mongo_data:
+    # Named volume — data persists even if containers are stopped/deleted
+    driver: local
