@@ -11,6 +11,7 @@ import requests
 
 
 # COMMENT JUST FOR CICD PIPELINING CHECK
+#COMMENT JUST FOR CICD PIPELINING CHECK
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "341783ef1bf4d566decfd13e2f13ddebb2723771e003ed79a7e3a92378b9d429")
 
