@@ -15,10 +15,12 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+
     - name: Install dependencies
       run: |
         cd backend
@@ -32,15 +34,18 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+
     - name: Install dependencies
       run: |
         cd backend
         pip install -r requirements.txt
         pip install pytest
+
     - name: Run tests
       run: |
         cd backend
@@ -54,19 +59,29 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
     - name: Login to Docker Hub
       uses: docker/login-action@v2
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-    - name: Build Docker image
-      run: |
-        docker build -t faizi0327/fa23-bcs-044:latest .
-    - name: Push Docker image
-      run: |
-        docker push faizi0327/fa23-bcs-044:latest
 
-# ── STAGE 4: DEPLOY ─────────────────────────────────────
+    - name: Build and push backend
+      run: |
+        docker build -t faizi0327/fa23-bcs-044-backend:latest ./backend
+        docker push faizi0327/fa23-bcs-044-backend:latest
+
+    - name: Build and push frontend
+      run: |
+        docker build -t faizi0327/fa23-bcs-044-frontend:latest ./frontend
+        docker push faizi0327/fa23-bcs-044-frontend:latest
+
+    - name: Build and push mongo
+      run: |
+        docker build -t faizi0327/fa23-bcs-044-mongo:latest ./mongo
+        docker push faizi0327/fa23-bcs-044-mongo:latest
+
+  # ── STAGE 4: DEPLOY ─────────────────────────────────────
   deploy:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
@@ -86,6 +101,14 @@ jobs:
     - name: Get AKS credentials
       run: |
         az aks get-credentials --resource-group jobtrack-rg --name jobtrack-aks
+
+    - name: Create Kubernetes secret
+      run: |
+        kubectl create secret generic jobtrack-secrets \
+          --from-literal=MONGO_URI="${{ secrets.MONGO_URI }}" \
+          --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+          --from-literal=SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+          --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Apply Kubernetes manifests
       run: |

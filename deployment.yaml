@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobtrack-mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jobtrack-mongo
+  template:
+    metadata:
+      labels:
+        app: jobtrack-mongo
+    spec:
+      containers:
+      - name: mongo
+        image: faizi0327/fa23-bcs-044-mongo:latest
+        ports:
+        - containerPort: 27017
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+spec:
+  selector:
+    app: jobtrack-mongo
+  ports:
+  - port: 27017
+    targetPort: 27017
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobtrack-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jobtrack-backend
+  template:
+    metadata:
+      labels:
+        app: jobtrack-backend
+    spec:
+      containers:
+      - name: backend
+        image: faizi0327/fa23-bcs-044-backend:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: MONGO_URI
+          valueFrom:
+            secretKeyRef:
+              name: jobtrack-secrets
+              key: MONGO_URI
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jobtrack-secrets
+              key: GEMINI_API_KEY
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jobtrack-secrets
+              key: SECRET_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  selector:
+    app: jobtrack-backend
+  ports:
+  - port: 5000
+    targetPort: 5000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobtrack-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jobtrack-frontend
+  template:
+    metadata:
+      labels:
+        app: jobtrack-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: faizi0327/fa23-bcs-044-frontend:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: jobtrack-frontend
+  ports:
+  - port: 80
+    targetPort: 80
+  type: LoadBalancer
