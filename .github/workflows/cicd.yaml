@@ -78,7 +78,7 @@ jobs:
 
     - name: Build and push mongo
       run: |
-        docker build -t faizi0327/fa23-bcs-044-mongo:latest ./mongo
+        docker build -t faizi0327/fa23-bcs-044-mongo:latest ./mongo-init
         docker push faizi0327/fa23-bcs-044-mongo:latest
 
   # ── STAGE 4: DEPLOY ─────────────────────────────────────
