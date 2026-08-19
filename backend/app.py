@@ -9,10 +9,17 @@ from functools import wraps
 import os
 import requests
 from urllib.parse import urlparse
-
 import json
 import re
+from dotenv import load_dotenv
 
+load_dotenv()  # loads .env file automatically
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY")
+MONGO_URI = os.environ.get("MONGO_URI")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # COMMENT JUST FOR CICD PIPELINING CHECK
 #COMMENT JUST FOR CICD PIPELINING CHECK
