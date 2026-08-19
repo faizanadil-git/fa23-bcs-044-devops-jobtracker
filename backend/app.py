@@ -136,7 +136,9 @@ def uid():
 
 @app.route("/")
 def root():
-    return redirect(url_for("index") if "user_id" in session else url_for("login_page"))
+    if "user_id" in session:
+        return redirect(url_for("index"))
+    return render_template("landing.html")  # ← change this line
 
 @app.route("/login")
 def login_page():
