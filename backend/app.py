@@ -23,12 +23,7 @@ GEMINI_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # COMMENT JUST FOR CICD PIPELINING CHECK
 #COMMENT JUST FOR CICD PIPELINING CHECK
-app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "341783ef1bf4d566decfd13e2f13ddebb2723771e003ed79a7e3a92378b9d429")
 
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://fa23bcs044_db_user:06BPuRDJ9SKhkJ3b@cluster044.cnwpznd.mongodb.net/?appName=Cluster044")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "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")
-GEMINI_URL = "https://api.groq.com/openai/v1/chat/completions"
 client = MongoClient(MONGO_URI)
 db = client["job_tracker"]
 jobs = db["applications"]
@@ -93,7 +88,7 @@ def gemini(prompt):
     if not GEMINI_API_KEY:
         return "No API key configured."
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": "openai/gpt-oss-120b",
         "messages": [{"role": "user", "content": prompt}]
     }
     headers = {
