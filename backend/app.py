@@ -1,5 +1,5 @@
 
-# JobTrack - DevOps Lab Exam FA23-BCS-044
+# JobTrack
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from pymongo import MongoClient
 from bson import ObjectId
@@ -8,6 +8,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import os
 import requests
+from urllib.parse import urlparse
+
+import json
+import re
 
 
 # COMMENT JUST FOR CICD PIPELINING CHECK
@@ -423,6 +427,215 @@ Candidate: {answer}
 React briefly and naturally to their answer (1-2 sentences max), then ask your next interview question. Ask only ONE question. Keep it conversational."""
 
     return jsonify({"result": gemini(prompt)})
+
+
+# ── Page Routes ───────────────────────────────────────────────────────────────
+
+@app.route("/coverletter/<job_id>")
+@login_required
+def coverletter_page(job_id):
+    job = jobs.find_one({"_id": ObjectId(job_id), "user_id": uid()})
+    if not job:
+        return redirect(url_for("index"))
+    return render_template("coverletter.html", username=session.get("username"), job=serialize(job))
+
+
+@app.route("/import")
+@login_required
+def import_page():
+    return render_template("import_job.html", username=session.get("username"))
+
+
+# ── Cover Letter API ──────────────────────────────────────────────────────────
+
+@app.route("/api/ai/coverletter", methods=["POST"])
+@api_login_required
+def ai_coverletter():
+    data = request.json
+    company = data.get("company", "")
+    role = data.get("role", "")
+    jd = data.get("job_description", "")
+    resume = data.get("resume", "")
+    name = data.get("name", "The Applicant")
+    email = data.get("email", "")
+    tone = data.get("tone", "professional")
+    length = data.get("length", "medium")
+    extra = data.get("extra", "")
+
+    tone_map = {
+        "professional": "formal, polished, and confident",
+        "enthusiastic": "energetic, passionate, and genuinely excited about the role",
+        "concise": "extremely direct and to-the-point — no fluff whatsoever",
+        "storytelling": "narrative-driven — open with a brief compelling story or moment",
+        "casual": "warm, friendly, and conversational — like writing to a colleague",
+    }
+    length_map = {
+        "short": "Keep it SHORT — around 150 words maximum. One strong paragraph.",
+        "medium": "Keep it MEDIUM — around 250 words. Three tight paragraphs.",
+        "long": "Write a FULL letter — around 400 words. Four paragraphs with depth.",
+    }
+
+    prompt = f"""You are an expert career coach and professional writer. Write a cover letter for this application.
+
+Applicant name: {name}
+{f"Applicant email: {email}" if email else ""}
+Company: {company}
+Role: {role}
+
+Job Description:
+{jd if jd else "Not provided — infer requirements from the company name and role."}
+
+Applicant background / resume points:
+{resume if resume else "Not provided — write a strong general letter for this role."}
+
+Tone: {tone_map.get(tone, "professional")}
+Length: {length_map.get(length, "Around 250 words.")}
+{f"Special instructions: {extra}" if extra else ""}
+
+Rules:
+- Output ONLY the cover letter text — no meta-commentary, no notes, no explanations
+- Do NOT use placeholder brackets like [Your Name] — use the actual name given
+- Start with the salutation e.g. "Dear Hiring Manager," or "Dear {company} Team,"
+- End with a proper sign-off and the applicant name
+- Reference the company name and role specifically — make it feel genuinely tailored
+- Avoid the cliche opener "I am writing to express my interest" — be stronger
+- No filler phrases like "I am a passionate individual" or "I would be a great fit\""""
+
+    result = gemini(prompt)
+    return jsonify({"result": result})
+
+
+# ── Helpers for import ────────────────────────────────────────────────────────
+
+def _parse_ai_job_json(raw_text):
+    """Extract JSON from AI response, handling markdown code fences."""
+    import json, re
+    text = raw_text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"```\s*$", "", text, flags=re.MULTILINE)
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        return json.loads(match.group())
+    raise ValueError("No JSON found in AI response")
+
+
+# ── Job Import API ────────────────────────────────────────────────────────────
+
+@app.route("/api/ai/import/paste", methods=["POST"])
+@api_login_required
+def ai_import_paste():
+    """Extract job fields from pasted job description text using AI."""
+    import re
+    data = request.json
+    text = data.get("text", "").strip()
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    prompt = f"""You are a job posting parser. Extract structured information from this job posting.
+
+Job posting:
+{text[:4000]}
+
+Return ONLY a valid JSON object with these exact keys (empty string "" if not found):
+{{
+  "company": "company name",
+  "role": "job title",
+  "location": "city, country or Remote",
+  "salary": "salary range or empty string",
+  "link": "application URL if mentioned, else empty string",
+  "notes": "2-3 sentence summary of the role and key requirements"
+}}
+
+Return ONLY the JSON. No explanation, no markdown, no code fences."""
+
+    raw = gemini(prompt)
+    try:
+        extracted = _parse_ai_job_json(raw)
+        clean = {k: str(extracted.get(k, "")).strip()
+                 for k in ["company", "role", "location", "salary", "link", "notes"]}
+        return jsonify(clean)
+    except Exception as e:
+        return jsonify({"error": f"Could not parse AI response: {str(e)}"}), 500
+
+
+@app.route("/api/ai/import/url", methods=["POST"])
+@api_login_required
+def ai_import_url():
+    """Fetch a LinkedIn/Indeed URL, extract page text, then parse with AI."""
+    import re
+    from urllib.parse import urlparse as _urlparse
+    data = request.json
+    url = data.get("url", "").strip()
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+
+    try:
+        parsed = _urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return jsonify({"error": "Invalid URL"}), 400
+    except Exception:
+        return jsonify({"error": "Invalid URL"}), 400
+
+    # Fetch page
+    try:
+        hdrs = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        resp = requests.get(url, headers=hdrs, timeout=15)
+        resp.raise_for_status()
+        page_text = resp.text
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Request timed out. Try pasting the description instead."}), 502
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Could not fetch URL: {str(e)[:100]}. Try pasting instead."}), 502
+
+    # Strip HTML
+    clean = re.sub(r"<style[^>]*>.*?</style>", " ", page_text, flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r"<script[^>]*>.*?</script>", " ", clean, flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r"<[^>]+>", " ", clean)
+    clean = re.sub(r"\s+", " ", clean).strip()
+
+    if len(clean) < 100:
+        return jsonify({
+            "error": "Could not extract content. LinkedIn/Indeed may block this. Please paste the description text instead.",
+            "company": "", "role": "", "location": "", "salary": "", "link": url, "notes": ""
+        }), 200
+
+    prompt = f"""You are a job posting parser. Extract structured information from this webpage text scraped from a job posting.
+
+Webpage text:
+{clean[:4000]}
+
+Original URL: {url}
+
+Return ONLY a valid JSON object with these exact keys (empty string "" if not found):
+{{
+  "company": "company name",
+  "role": "job title",
+  "location": "city, country or Remote",
+  "salary": "salary range or empty string",
+  "link": "{url}",
+  "notes": "2-3 sentence summary of the role and key requirements"
+}}
+
+Return ONLY the JSON. No explanation, no markdown, no code fences."""
+
+    raw = gemini(prompt)
+    try:
+        extracted = _parse_ai_job_json(raw)
+        clean_out = {k: str(extracted.get(k, "")).strip()
+                     for k in ["company", "role", "location", "salary", "link", "notes"]}
+        if not clean_out.get("link"):
+            clean_out["link"] = url
+        return jsonify(clean_out)
+    except Exception as e:
+        return jsonify({"error": f"Could not parse AI response: {str(e)}"}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

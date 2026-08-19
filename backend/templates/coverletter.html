@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobTrack — Cover Letter Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d0d0f;--surface:#16161a;--surface2:#1e1e24;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);--text:#e8e8ec;--muted:#6b6b7a;--accent:#c8f064;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;border-bottom:1px solid var(--border);}
+  .logo{font-family:'DM Serif Display',serif;font-size:22px;}.logo span{color:var(--accent);}
+  .back-btn{padding:7px 14px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:none;}
+  .back-btn:hover{border-color:var(--border2);color:var(--text);}
+  main{max-width:820px;margin:0 auto;padding:36px 24px;}
+  .company-tag{display:inline-block;font-family:'DM Mono',monospace;font-size:12px;padding:4px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;color:var(--muted);margin-bottom:10px;}
+  .page-title{font-family:'DM Serif Display',serif;font-size:28px;margin-bottom:4px;}
+  .page-sub{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.6;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .form-group{display:flex;flex-direction:column;gap:7px;margin-bottom:16px;}
+  .form-group.full{grid-column:1/-1;}
+  .form-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:'DM Mono',monospace;}
+  .form-hint{font-size:12px;color:var(--muted);font-style:italic;}
+  input[type=text],input[type=url],textarea,select{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;width:100%;transition:border-color 0.15s;}
+  input[type=text]:focus,input[type=url]:focus,textarea:focus,select:focus{border-color:var(--accent);}
+  textarea{resize:vertical;min-height:90px;line-height:1.6;}
+  select option{background:var(--surface2);}
+
+  /* Tone pills */
+  .tone-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+  .tone-pill{padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--surface2);transition:all 0.15s;font-family:'DM Mono',monospace;}
+  .tone-pill:hover{border-color:var(--border2);color:var(--text);}
+  .tone-pill.active{border-color:var(--accent);color:var(--accent);background:rgba(200,240,100,0.08);}
+
+  .btn-generate{width:100%;padding:13px;background:var(--accent);color:#0d0d0f;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;margin-top:8px;transition:opacity 0.15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-generate:hover{opacity:0.88;}
+  .btn-generate:disabled{opacity:0.5;cursor:not-allowed;}
+  .spinner{width:16px;height:16px;border:2px solid rgba(0,0,0,0.2);border-top-color:#0d0d0f;border-radius:50%;animation:spin 0.7s linear infinite;display:none;}
+  .spinner.show{display:block;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Result */
+  .result-area{margin-top:32px;display:none;}
+  .result-area.show{display:block;}
+  .result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .result-title{font-family:'DM Serif Display',serif;font-size:20px;}
+  .result-actions{display:flex;gap:8px;}
+  .btn-action{padding:7px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;border:1px solid var(--border);background:var(--surface2);color:var(--text);transition:all 0.15s;}
+  .btn-action:hover{border-color:var(--border2);}
+  .btn-action.accent{background:var(--accent);color:#0d0d0f;border-color:var(--accent);}
+  .letter-box{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:32px 36px;font-size:14px;line-height:1.85;color:var(--text);white-space:pre-wrap;font-family:'DM Sans',sans-serif;}
+  .word-count{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:10px;text-align:right;}
+
+  /* Regenerate strip */
+  .regen-strip{display:none;margin-top:20px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;display:none;gap:12px;align-items:center;flex-wrap:wrap;}
+  .regen-strip.show{display:flex;}
+  .regen-label{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap;}
+
+  /* Copy toast */
+  .toast{position:fixed;bottom:28px;right:28px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--accent);opacity:0;transition:opacity 0.3s;pointer-events:none;font-family:'DM Mono',monospace;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Job<span>Track</span></div>
+  <a href="/dashboard" class="back-btn">← Dashboard</a>
+</header>
+
+<main>
+  <div class="company-tag" id="company-tag">{{ job.company }} — {{ job.role }}</div>
+  <div class="page-title">Cover Letter Generator</div>
+  <div class="page-sub">Fill in the details below — the AI will write a personalised, tailored cover letter you can copy directly into your application.</div>
+
+  <!-- Form -->
+  <div class="two-col">
+    <div class="form-group full">
+      <div class="form-label">Job Description</div>
+      <div class="form-hint">Paste the full job posting — the more detail, the better the letter.</div>
+      <textarea id="jd" rows="6" placeholder="Paste the job description here…"></textarea>
+    </div>
+    <div class="form-group full">
+      <div class="form-label">Your Resume / Key Points</div>
+      <div class="form-hint">Paste your resume or bullet-point your most relevant experience, skills and achievements.</div>
+      <textarea id="resume" rows="5" placeholder="e.g.&#10;• 2 years Flask + MongoDB experience&#10;• Built VulnScanner — deployed on Azure AKS&#10;• COMSATS University, BCS 6th semester, GPA 3.4&#10;• Strong in Docker, Kubernetes, CI/CD&#10;• Led team project for Parallel & Distributed Computing"></textarea>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Your Name</div>
+      <input type="text" id="name" placeholder="Muhammad Faizan" value="Muhammad Faizan">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Your Email</div>
+      <input type="text" id="email" placeholder="you@email.com">
+    </div>
+    <div class="form-group full">
+      <div class="form-label">Tone</div>
+      <div class="form-hint">Pick the vibe that fits the company culture.</div>
+      <div class="tone-row">
+        <div class="tone-pill active" data-tone="professional">Professional</div>
+        <div class="tone-pill" data-tone="enthusiastic">Enthusiastic</div>
+        <div class="tone-pill" data-tone="concise">Concise &amp; Direct</div>
+        <div class="tone-pill" data-tone="storytelling">Storytelling</div>
+        <div class="tone-pill" data-tone="casual">Casual &amp; Friendly</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Length</div>
+      <select id="length">
+        <option value="short">Short (~150 words)</option>
+        <option value="medium" selected>Medium (~250 words)</option>
+        <option value="long">Long (~400 words)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Special instructions <span style="color:var(--muted);font-size:11px;">(optional)</span></div>
+      <input type="text" id="extra" placeholder="e.g. Mention my internship interest, avoid clichés…">
+    </div>
+  </div>
+
+  <button class="btn-generate" id="gen-btn" onclick="generate()">
+    <div class="spinner" id="spinner"></div>
+    <span id="btn-text">Generate Cover Letter</span>
+  </button>
+
+  <!-- Result -->
+  <div class="result-area" id="result-area">
+    <div class="result-header">
+      <div class="result-title">Your Cover Letter</div>
+      <div class="result-actions">
+        <button class="btn-action" onclick="copyLetter()">Copy</button>
+        <button class="btn-action accent" onclick="generate()">Regenerate</button>
+      </div>
+    </div>
+    <div class="letter-box" id="letter-box"></div>
+    <div class="word-count" id="word-count"></div>
+
+    <div class="regen-strip show">
+      <div class="regen-label">Try a different tone →</div>
+      <div class="tone-row" id="regen-tones">
+        <div class="tone-pill" data-tone="professional" onclick="quickRegen('professional')">Professional</div>
+        <div class="tone-pill" data-tone="enthusiastic" onclick="quickRegen('enthusiastic')">Enthusiastic</div>
+        <div class="tone-pill" data-tone="concise" onclick="quickRegen('concise')">Concise</div>
+        <div class="tone-pill" data-tone="storytelling" onclick="quickRegen('storytelling')">Storytelling</div>
+        <div class="tone-pill" data-tone="casual" onclick="quickRegen('casual')">Casual</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast">Copied to clipboard!</div>
+
+<script>
+const COMPANY = "{{ job.company }}";
+const ROLE    = "{{ job.role }}";
+const JOB_ID  = "{{ job._id }}";
+
+let selectedTone = 'professional';
+
+// Tone pills
+document.querySelectorAll('.tone-pill[data-tone]').forEach(pill => {
+  if (pill.closest('#regen-tones')) return;
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.tone-row:not(#regen-tones) .tone-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    selectedTone = pill.dataset.tone;
+  });
+});
+
+async function generate(overrideTone) {
+  const jd     = document.getElementById('jd').value.trim();
+  const resume = document.getElementById('resume').value.trim();
+  const name   = document.getElementById('name').value.trim() || 'The Applicant';
+  const email  = document.getElementById('email').value.trim();
+  const extra  = document.getElementById('extra').value.trim();
+  const length = document.getElementById('length').value;
+  const tone   = overrideTone || selectedTone;
+
+  if (!jd && !resume) {
+    alert('Please paste the job description or your resume/key points.');
+    return;
+  }
+
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true;
+  document.getElementById('spinner').classList.add('show');
+  document.getElementById('btn-text').textContent = 'Writing your letter…';
+
+  try {
+    const res = await fetch('/api/ai/coverletter', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ company: COMPANY, role: ROLE, job_description: jd,
+                             resume: resume, name, email, tone, length, extra })
+    });
+    const data = await res.json();
+    const letter = data.result || 'Could not generate. Please try again.';
+    document.getElementById('letter-box').textContent = letter;
+    const wc = letter.trim().split(/\s+/).length;
+    document.getElementById('word-count').textContent = `${wc} words`;
+    document.getElementById('result-area').classList.add('show');
+    document.getElementById('result-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch(e) {
+    alert('Error generating letter. Please try again.');
+  }
+
+  btn.disabled = false;
+  document.getElementById('spinner').classList.remove('show');
+  document.getElementById('btn-text').textContent = 'Generate Cover Letter';
+}
+
+function quickRegen(tone) {
+  selectedTone = tone;
+  generate(tone);
+}
+
+function copyLetter() {
+  const text = document.getElementById('letter-box').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  });
+}
+</script>
+</body>
+</html>

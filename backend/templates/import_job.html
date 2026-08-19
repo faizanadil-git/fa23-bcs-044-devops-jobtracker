@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobTrack — Import Job</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d0d0f;--surface:#16161a;--surface2:#1e1e24;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);--text:#e8e8ec;--muted:#6b6b7a;--accent:#c8f064;--offer:#4cd964;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;border-bottom:1px solid var(--border);}
+  .logo{font-family:'DM Serif Display',serif;font-size:22px;}.logo span{color:var(--accent);}
+  .back-btn{padding:7px 14px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:none;}
+  .back-btn:hover{border-color:var(--border2);color:var(--text);}
+  main{max-width:740px;margin:0 auto;padding:36px 24px;}
+  .page-title{font-family:'DM Serif Display',serif;font-size:28px;margin-bottom:4px;}
+  .page-sub{font-size:13px;color:var(--muted);margin-bottom:32px;line-height:1.6;}
+  .mode-tabs{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:28px;}
+  .mode-tab{flex:1;padding:11px;text-align:center;font-size:13px;cursor:pointer;color:var(--muted);background:none;border:none;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+  .mode-tab.active{background:var(--surface2);color:var(--text);}
+  .panel{display:none;}.panel.show{display:block;}
+  .form-group{display:flex;flex-direction:column;gap:7px;margin-bottom:18px;}
+  .form-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:'DM Mono',monospace;}
+  .form-hint{font-size:12px;color:var(--muted);font-style:italic;}
+  input[type=url],textarea{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;width:100%;transition:border-color 0.15s;}
+  input[type=url]:focus,textarea:focus{border-color:var(--accent);}
+  textarea{resize:vertical;min-height:160px;line-height:1.6;}
+  .btn-primary{width:100%;padding:13px;background:var(--accent);color:#0d0d0f;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;transition:opacity 0.15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-primary:hover{opacity:0.88;}
+  .btn-primary:disabled{opacity:0.5;cursor:not-allowed;}
+  .spinner{width:16px;height:16px;border:2px solid rgba(0,0,0,0.2);border-top-color:#0d0d0f;border-radius:50%;animation:spin 0.7s linear infinite;display:none;}
+  .spinner.show{display:block;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .url-status{font-size:12px;font-family:'DM Mono',monospace;margin-top:6px;display:none;}
+  .url-status.warn{color:#f5a623;display:block;}
+  .url-status.info{color:var(--muted);display:block;}
+  .preview-card{margin-top:28px;background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:24px;display:none;}
+  .preview-card.show{display:block;}
+  .preview-title{font-family:'DM Serif Display',serif;font-size:18px;margin-bottom:16px;}
+  .preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+  .preview-field{display:flex;flex-direction:column;gap:4px;}
+  .preview-field.full{grid-column:1/-1;}
+  .preview-field-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:'DM Mono',monospace;}
+  .preview-field-val{font-size:14px;color:var(--text);padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;min-height:36px;outline:none;transition:border-color 0.15s;}
+  .preview-field-val:focus{border-color:var(--accent);}
+  .preview-actions{display:flex;gap:10px;}
+  .btn-save{flex:1;padding:12px;background:var(--accent);color:#0d0d0f;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;}
+  .btn-save:hover{opacity:0.88;}
+  .btn-discard{padding:12px 20px;background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;}
+  .btn-discard:hover{border-color:var(--border2);color:var(--text);}
+  .success-banner{background:rgba(76,217,100,0.1);border:1px solid rgba(76,217,100,0.3);border-radius:10px;padding:14px 18px;font-size:13px;color:var(--offer);margin-top:20px;display:none;text-align:center;}
+  .success-banner a{color:var(--accent);text-decoration:none;font-weight:500;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Job<span>Track</span></div>
+  <a href="/dashboard" class="back-btn">← Dashboard</a>
+</header>
+<main>
+  <div class="page-title">Import a Job</div>
+  <div class="page-sub">Paste a LinkedIn or Indeed URL to auto-extract job details, or paste the raw job description and let AI fill the form for you.</div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" onclick="switchMode('url')">🔗 Import from URL</button>
+    <button class="mode-tab" onclick="switchMode('paste')">📋 Paste Job Description</button>
+  </div>
+
+  <div class="panel show" id="panel-url">
+    <div class="form-group">
+      <div class="form-label">LinkedIn or Indeed Job URL</div>
+      <div class="form-hint">Paste the full URL from your browser address bar.</div>
+      <input type="url" id="job-url" placeholder="https://www.linkedin.com/jobs/view/... or https://www.indeed.com/viewjob?...">
+      <div class="url-status" id="url-status"></div>
+    </div>
+    <button class="btn-primary" id="url-btn" onclick="importFromUrl()">
+      <div class="spinner" id="url-spinner"></div>
+      <span id="url-btn-text">Extract Job Details</span>
+    </button>
+  </div>
+
+  <div class="panel" id="panel-paste">
+    <div class="form-group">
+      <div class="form-label">Job Description Text</div>
+      <div class="form-hint">Copy the entire job posting — title, company, description, requirements. AI will extract all fields automatically.</div>
+      <textarea id="jd-paste" rows="10" placeholder="Paste the full job posting text here..."></textarea>
+    </div>
+    <button class="btn-primary" id="paste-btn" onclick="importFromPaste()">
+      <div class="spinner" id="paste-spinner"></div>
+      <span id="paste-btn-text">Extract with AI</span>
+    </button>
+  </div>
+
+  <div class="preview-card" id="preview-card">
+    <div class="preview-title">Review &amp; Edit Before Saving</div>
+    <div class="preview-grid" id="preview-grid"></div>
+    <div class="preview-actions">
+      <button class="btn-save" onclick="saveJob()">Add to JobTrack</button>
+      <button class="btn-discard" onclick="discardPreview()">Discard</button>
+    </div>
+  </div>
+
+  <div class="success-banner" id="success-banner">
+    Job added successfully! <a href="/dashboard">View on Dashboard →</a>
+  </div>
+</main>
+<script>
+function switchMode(mode){
+  document.querySelectorAll('.mode-tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&mode==='url')||(i===1&&mode==='paste')));
+  document.getElementById('panel-url').classList.toggle('show',mode==='url');
+  document.getElementById('panel-paste').classList.toggle('show',mode==='paste');
+  document.getElementById('preview-card').classList.remove('show');
+  document.getElementById('success-banner').style.display='none';
+}
+
+async function importFromUrl(){
+  const url=document.getElementById('job-url').value.trim();
+  if(!url){alert('Please paste a job URL.');return;}
+  const st=document.getElementById('url-status');
+  if(!url.includes('linkedin.com')&&!url.includes('indeed.com')){
+    st.className='url-status warn';st.textContent='Only LinkedIn and Indeed are fully supported. Trying anyway...';
+  } else {st.className='url-status info';st.textContent='Fetching job details...';}
+  setLoading('url',true);
+  try{
+    const res=await fetch('/api/ai/import/url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+    const data=await res.json();
+    if(data.error){alert(data.error);setLoading('url',false);return;}
+    showPreview(data);
+    st.className='url-status info';st.textContent='Details extracted — review and edit below.';
+  }catch(e){alert('Failed to fetch. Try pasting the description instead.');}
+  setLoading('url',false);
+}
+
+async function importFromPaste(){
+  const text=document.getElementById('jd-paste').value.trim();
+  if(!text){alert('Please paste the job description text.');return;}
+  setLoading('paste',true);
+  try{
+    const res=await fetch('/api/ai/import/paste',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    const data=await res.json();
+    if(data.error){alert(data.error);setLoading('paste',false);return;}
+    showPreview(data);
+  }catch(e){alert('AI extraction failed. Please try again.');}
+  setLoading('paste',false);
+}
+
+function showPreview(data){
+  const fields=[
+    {key:'company',label:'Company',full:false},
+    {key:'role',label:'Role / Title',full:false},
+    {key:'location',label:'Location',full:false},
+    {key:'salary',label:'Salary',full:false},
+    {key:'link',label:'Job URL',full:true},
+    {key:'notes',label:'Notes / Summary',full:true},
+  ];
+  document.getElementById('preview-grid').innerHTML=fields.map(f=>`
+    <div class="preview-field ${f.full?'full':''}">
+      <div class="preview-field-label">${f.label}</div>
+      <div class="preview-field-val" contenteditable="true" id="pf-${f.key}">${esc(data[f.key]||'')}</div>
+    </div>`).join('');
+  document.getElementById('preview-card').classList.add('show');
+  document.getElementById('preview-card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function saveJob(){
+  const job={
+    company:getText('pf-company'),role:getText('pf-role'),
+    location:getText('pf-location'),salary:getText('pf-salary'),
+    link:getText('pf-link'),notes:getText('pf-notes'),status:'Applied',
+  };
+  if(!job.company||!job.role){alert('Company and Role are required.');return;}
+  const res=await fetch('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(job)});
+  if(res.ok){
+    document.getElementById('preview-card').classList.remove('show');
+    const b=document.getElementById('success-banner');
+    b.style.display='block';
+    b.scrollIntoView({behavior:'smooth'});
+  } else {alert('Failed to save. Please try again.');}
+}
+
+function discardPreview(){document.getElementById('preview-card').classList.remove('show');}
+function setLoading(mode,on){
+  document.getElementById(mode+'-btn').disabled=on;
+  document.getElementById(mode+'-spinner').classList.toggle('show',on);
+  document.getElementById(mode+'-btn-text').textContent=on?(mode==='url'?'Fetching...':'Extracting with AI...'):(mode==='url'?'Extract Job Details':'Extract with AI');
+}
+function getText(id){return(document.getElementById(id)?.textContent||'').trim();}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+</script>
+</body>
+</html>
