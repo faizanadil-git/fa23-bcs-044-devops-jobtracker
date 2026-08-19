@@ -26,6 +26,8 @@
   .view-toggle{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
   .view-btn{padding:6px 12px;background:none;border:none;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;transition:all 0.15s;}
   .view-btn.active{background:var(--surface2);color:var(--text);}
+  .btn-import{padding:8px 14px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;transition:all 0.15s;}
+  .btn-import:hover{border-color:var(--accent);color:var(--accent);}
   .btn-add{padding:8px 16px;background:var(--accent);color:#0d0d0f;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
   .btn-add:hover{opacity:0.88;}
   .btn-logout{padding:6px 12px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;}
@@ -134,10 +136,66 @@
   .section-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:'DM Mono',monospace;margin-bottom:8px;}
   .toast{position:fixed;bottom:28px;right:28px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--text);z-index:999;opacity:0;transform:translateY(10px);transition:all 0.2s;pointer-events:none;}
   .toast.show{opacity:1;transform:translateY(0);}
+
+  /* ── Mobile Menu ───────────────────────────────── */
+  .hamburger{display:none;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:18px;cursor:pointer;padding:5px 10px;line-height:1;}
+  .mobile-menu{display:none;position:fixed;top:57px;left:0;right:0;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;z-index:99;flex-direction:column;gap:4px;}
+  .mobile-menu.open{display:flex;}
+  .mobile-menu a{padding:10px 14px;color:var(--text);text-decoration:none;border-radius:8px;font-size:14px;}
+  .mobile-menu a:hover{background:var(--surface2);}
+  .mobile-menu hr{border:none;border-top:1px solid var(--border);margin:4px 0;}
+
+  /* ── Mobile Responsive ─────────────────────────── */
+  @media(max-width:768px){
+    header{padding:12px 16px;gap:10px;}
+    .nav{display:none;}
+    .hamburger{display:block;}
+    .xp-bar-wrap{display:none;}
+    .header-right{gap:6px;}
+    .btn-import{display:none;}
+    .user-badge{display:none;}
+    .stats-bar{padding:10px 12px;gap:1px;overflow-x:auto;}
+    .stat{min-width:70px;padding:10px 8px;}
+    .stat-value{font-size:20px;}
+    .stat-label{font-size:9px;}
+    main{padding:14px 12px;}
+    .toolbar{flex-wrap:wrap;gap:8px;}
+    .search-box{max-width:100%;flex:1 1 140px;}
+    .filter-select{flex:1;min-width:110px;}
+    .kanban{grid-template-columns:1fr;gap:10px;}
+    .list-header{display:none;}
+    .list-item{grid-template-columns:1fr auto;grid-template-rows:auto auto auto;gap:6px;padding:12px 14px;}
+    .list-company{grid-column:1;font-size:14px;}
+    .list-actions{grid-column:2;grid-row:1/4;flex-direction:column;gap:4px;}
+    .list-role{grid-column:1;}
+    .list-loc:first-of-type{display:none;}
+    .status-badge{justify-self:start;}
+    .modal{padding:20px 16px;}
+    .form-grid{grid-template-columns:1fr;}
+    .form-group.full{grid-column:1;}
+    .card-tools{opacity:1;}
+    .card-actions{opacity:1;}
+  }
+
+  @media(max-width:480px){
+    .stat-value{font-size:18px;}
+    .stats-bar{gap:0px;}
+    .stat{padding:8px 6px;}
+    .view-toggle{display:none;}
+  }
 </style>
 </head>
 <body>
+<div class="mobile-menu" id="mobile-menu">
+  <a href="/dashboard">📊 Dashboard</a>
+  <a href="/analytics">📈 Analytics</a>
+  <a href="/import">⬇ Import Job</a>
+  <hr>
+  <a href="#" onclick="openModal();closeMobileMenu()">+ Add Job</a>
+  <a href="#" onclick="logout()">Logout</a>
+</div>
 <header>
+  <button class="hamburger" onclick="toggleMobileMenu()">☰</button>
   <div class="logo">Job<span>Track</span></div>
   <nav class="nav">
     <a href="/dashboard" class="active">Dashboard</a>
@@ -155,6 +213,7 @@
       <button class="view-btn active" id="btn-kanban" onclick="setView('kanban')">Kanban</button>
       <button class="view-btn" id="btn-list" onclick="setView('list')">List</button>
     </div>
+    <a class="btn-import" href="/import">⬇ Import</a>
     <button class="btn-add" onclick="openModal()">+ Add Job</button>
     <span class="user-badge">{{ username }}</span>
     <button class="btn-logout" onclick="logout()">Logout</button>
@@ -322,6 +381,7 @@ function jobCard(j){
     </div>
     ${cl.length?`<div class="check-summary">Tasks: <span>${done}/${cl.length}</span> done</div>`:''}
     <div class="card-tools" onclick="event.stopPropagation()">
+      <a class="tool-btn" href="/coverletter/${j._id}">✉ Cover Letter</a>
       ${isActive?`<a class="tool-btn" href="/culture/${j._id}">Culture Fit</a>`:''}
       ${j.status==='Interview'?`<a class="tool-btn" href="/interview/${j._id}">Mock Interview</a><a class="tool-btn" href="/debrief/${j._id}">Debrief</a>`:''}
     </div>
@@ -414,6 +474,17 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('open');}
+function closeMobileMenu(){document.getElementById('mobile-menu').classList.remove('open');}
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('mobile-menu');
+  const burger=document.querySelector('.hamburger');
+  if(menu.classList.contains('open')&&!menu.contains(e.target)&&!burger.contains(e.target)){
+    menu.classList.remove('open');
+  }
+});
+
 loadJobs();
 </script>
 </body>
