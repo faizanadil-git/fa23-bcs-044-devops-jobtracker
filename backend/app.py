@@ -20,6 +20,8 @@ app.secret_key = os.environ.get("SECRET_KEY")
 MONGO_URI = os.environ.get("MONGO_URI")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GEMINI_URL = "https://api.groq.com/openai/v1/chat/completions"
+JSEARCH_KEY = os.environ.get("JSEARCH_KEY")
+
 
 # COMMENT JUST FOR CICD PIPELINING CHECK
 #COMMENT JUST FOR CICD PIPELINING CHECK
