@@ -29,7 +29,7 @@ db = client["job_tracker"]
 jobs = db["applications"]
 users = db["users"]
 debriefs = db["debriefs"]
-
+profiles = db["profiles"]
 # ── XP Config ────────────────────────────────────────────
 XP_RULES = {
     "Applied":   10,
@@ -639,6 +639,89 @@ Return ONLY the JSON. No explanation, no markdown, no code fences."""
         return jsonify(clean_out)
     except Exception as e:
         return jsonify({"error": f"Could not parse AI response: {str(e)}"}), 500
+
+
+@app.route("/profile")
+@login_required
+def profile_page():
+    return render_template("profile.html", username=session.get("username"))
+
+
+# ── Profile API ───────────────────────────────────────────────────────────────
+
+@app.route("/api/profile", methods=["GET"])
+@api_login_required
+def get_profile():
+    """Get the current user's profile."""
+    p = profiles.find_one({"user_id": uid()})
+    if not p:
+        return jsonify({})
+    p["_id"] = str(p["_id"])
+    return jsonify(p)
+
+
+@app.route("/api/profile", methods=["POST"])
+@api_login_required
+def save_profile():
+    """Save or update the current user's profile."""
+    data = request.json
+    doc = {
+        "user_id": uid(),
+        "personal": data.get("personal", {}),
+        "education": data.get("education", []),
+        "experience": data.get("experience", []),
+        "projects": data.get("projects", []),
+        "skills": data.get("skills", []),
+        "certifications": data.get("certifications", []),
+        "languages": data.get("languages", []),
+        "preferences": data.get("preferences", {}),
+        "updated_at": datetime.utcnow().isoformat()
+    }
+    profiles.update_one(
+        {"user_id": uid()},
+        {"$set": doc},
+        upsert=True
+    )
+    return jsonify({"message": "Profile saved"})
+
+
+@app.route("/api/profile/summary", methods=["GET"])
+@api_login_required
+def get_profile_summary():
+    """
+    Returns a compact profile summary used by CV generator and job matching.
+    Calculates completeness percentage.
+    """
+    p = profiles.find_one({"user_id": uid()})
+    if not p:
+        return jsonify({"complete": False, "completeness": 0, "missing": ["Full profile"]})
+
+    per = p.get("personal", {})
+    prefs = p.get("preferences", {})
+
+    checks = {
+        "Name": bool(per.get("name")),
+        "Email": bool(per.get("email")),
+        "Summary": bool(per.get("summary")),
+        "Education": len(p.get("education", [])) > 0,
+        "Skills": len(p.get("skills", [])) > 0,
+        "Projects": len(p.get("projects", [])) > 0,
+        "Job Type": bool(prefs.get("job_type")),
+        "Location": bool(prefs.get("location")),
+    }
+
+    done = sum(1 for v in checks.values() if v)
+    pct = round((done / len(checks)) * 100)
+    missing = [k for k, v in checks.items() if not v]
+
+    return jsonify({
+        "complete": pct >= 70,
+        "completeness": pct,
+        "missing": missing,
+        "name": per.get("name", ""),
+        "skills": p.get("skills", []),
+        "preferences": prefs,
+    })
 
 
 if __name__ == "__main__":

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobTrack — My Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d0d0f;--surface:#16161a;--surface2:#1e1e24;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);--text:#e8e8ec;--muted:#6b6b7a;--accent:#c8f064;--offer:#4cd964;--rejected:#ff453a;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+  header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:100;}
+  .logo{font-family:'DM Serif Display',serif;font-size:22px;}.logo span{color:var(--accent);}
+  .nav{display:flex;gap:4px;}.nav a{padding:6px 12px;border-radius:8px;font-size:13px;color:var(--muted);text-decoration:none;transition:all 0.15s;}.nav a:hover{color:var(--text);background:var(--surface);}.nav a.active{color:var(--text);background:var(--surface2);}
+  .header-right{display:flex;gap:8px;align-items:center;}
+  .user-badge{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;padding:5px 10px;background:var(--surface);border:1px solid var(--border);border-radius:20px;}
+  .btn-logout{padding:6px 12px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;}
+  .btn-logout:hover{border-color:var(--border2);color:var(--text);}
+  main{max-width:860px;margin:0 auto;padding:32px 24px;}
+
+  /* Progress bar */
+  .progress-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 26px;margin-bottom:28px;display:flex;align-items:center;gap:24px;}
+  .progress-circle{position:relative;width:64px;height:64px;flex-shrink:0;}
+  .progress-circle svg{transform:rotate(-90deg);}
+  .progress-circle circle{fill:none;stroke-width:5;}
+  .progress-circle .track{stroke:var(--surface2);}
+  .progress-circle .fill{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset 0.8s ease;}
+  .progress-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--accent);}
+  .progress-text h3{font-family:'DM Serif Display',serif;font-size:17px;margin-bottom:4px;}
+  .progress-text p{font-size:12px;color:var(--muted);line-height:1.5;}
+  .progress-missing{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .missing-pill{font-size:11px;padding:3px 9px;border-radius:4px;background:rgba(255,69,58,0.1);color:var(--rejected);font-family:'DM Mono',monospace;}
+
+  /* Sections */
+  .section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px 26px;margin-bottom:16px;}
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;cursor:pointer;}
+  .section-title{font-family:'DM Serif Display',serif;font-size:18px;display:flex;align-items:center;gap:10px;}
+  .section-icon{font-size:20px;}
+  .section-toggle{font-size:18px;color:var(--muted);transition:transform 0.2s;}
+  .section-toggle.open{transform:rotate(180deg);}
+  .section-body{display:block;}
+  .section-body.collapsed{display:none;}
+
+  /* Form */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-group{display:flex;flex-direction:column;gap:6px;}
+  .form-group.full{grid-column:1/-1;}
+  .form-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:'DM Mono',monospace;}
+  input[type=text],input[type=email],input[type=url],input[type=number],textarea,select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;transition:border-color 0.15s;}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent);}
+  textarea{resize:vertical;min-height:80px;line-height:1.6;}
+  select option{background:var(--surface2);}
+
+  /* Skills tags */
+  .tags-wrap{display:flex;flex-wrap:wrap;gap:6px;min-height:36px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;cursor:text;transition:border-color 0.15s;}
+  .tags-wrap:focus-within{border-color:var(--accent);}
+  .tag{display:inline-flex;align-items:center;gap:5px;background:rgba(200,240,100,0.12);border:1px solid rgba(200,240,100,0.25);border-radius:4px;padding:3px 8px;font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;}
+  .tag button{background:none;border:none;color:var(--accent);cursor:pointer;font-size:14px;line-height:1;padding:0;}
+  .tag-input{border:none;outline:none;background:transparent;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;min-width:100px;flex:1;}
+
+  /* Dynamic list items */
+  .dynamic-list{display:flex;flex-direction:column;gap:10px;}
+  .dynamic-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;}
+  .dynamic-item-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .dynamic-item-grid.three{grid-template-columns:1fr 1fr 1fr;}
+  .btn-remove-item{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;}
+  .btn-remove-item:hover{color:var(--rejected);}
+  .btn-add-item{display:flex;align-items:center;gap:6px;padding:9px 14px;background:none;border:1px dashed var(--border2);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;width:100%;transition:all 0.15s;margin-top:4px;}
+  .btn-add-item:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* Save button */
+  .save-bar{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--border);padding:14px 24px;display:flex;justify-content:flex-end;gap:10px;margin:0 -24px;}
+  .btn-save{padding:10px 28px;background:var(--accent);color:#0d0d0f;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity 0.15s;display:flex;align-items:center;gap:8px;}
+  .btn-save:hover{opacity:0.88;}
+  .btn-save:disabled{opacity:0.5;cursor:not-allowed;}
+  .save-spinner{width:14px;height:14px;border:2px solid rgba(0,0,0,0.2);border-top-color:#0d0d0f;border-radius:50%;animation:spin 0.7s linear infinite;display:none;}
+  .save-spinner.show{display:block;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .save-status{font-size:13px;color:var(--offer);display:none;align-items:center;gap:6px;}
+  .save-status.show{display:flex;}
+
+  /* Toast */
+  .toast{position:fixed;bottom:80px;right:28px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--text);z-index:999;opacity:0;transform:translateY(10px);transition:all 0.2s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+
+  /* Mobile */
+  @media(max-width:600px){
+    main{padding:16px 12px;}
+    .form-grid{grid-template-columns:1fr;}
+    .form-group.full{grid-column:1;}
+    .dynamic-item-grid{grid-template-columns:1fr;}
+    .dynamic-item-grid.three{grid-template-columns:1fr;}
+    header{padding:12px 16px;}
+    .nav{display:none;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Job<span>Track</span></div>
+  <nav class="nav">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/analytics">Analytics</a>
+    <a href="/profile" class="active">Profile</a>
+  </nav>
+  <div class="header-right">
+    <span class="user-badge">{{ username }}</span>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<main>
+  <!-- Progress -->
+  <div class="progress-card">
+    <div class="progress-circle">
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <circle class="track" cx="32" cy="32" r="27"/>
+        <circle class="fill" id="progress-fill" cx="32" cy="32" r="27" stroke-dasharray="169.6" stroke-dashoffset="169.6"/>
+      </svg>
+      <div class="progress-pct" id="progress-pct">0%</div>
+    </div>
+    <div class="progress-text">
+      <h3>Profile Completeness</h3>
+      <p>A complete profile helps AI generate better CVs and match you to the right jobs.</p>
+      <div class="progress-missing" id="progress-missing"></div>
+    </div>
+  </div>
+
+  <!-- Personal Info -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection('personal')">
+      <div class="section-title"><span class="section-icon">👤</span> Personal Information</div>
+      <span class="section-toggle open" id="toggle-personal">▼</span>
+    </div>
+    <div class="section-body" id="body-personal">
+      <div class="form-grid">
+        <div class="form-group"><div class="form-label">Full Name *</div><input type="text" id="p-name" placeholder="Muhammad Faizan"></div>
+        <div class="form-group"><div class="form-label">Email *</div><input type="email" id="p-email" placeholder="faizan@email.com"></div>
+        <div class="form-group"><div class="form-label">Phone</div><input type="text" id="p-phone" placeholder="+92 300 1234567"></div>
+        <div class="form-group"><div class="form-label">Location</div><input type="text" id="p-location" placeholder="Lahore, Pakistan"></div>
+        <div class="form-group"><div class="form-label">LinkedIn URL</div><input type="url" id="p-linkedin" placeholder="https://linkedin.com/in/yourname"></div>
+        <div class="form-group"><div class="form-label">GitHub URL</div><input type="url" id="p-github" placeholder="https://github.com/yourname"></div>
+        <div class="form-group full"><div class="form-label">Professional Summary</div><textarea id="p-summary" rows="3" placeholder="2-3 sentences about who you are, your experience level, and what you're looking for..."></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Education -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection('education')">
+      <div class="section-title"><span class="section-icon">🎓</span> Education</div>
+      <span class="section-toggle open" id="toggle-education">▼</span>
+    </div>
+    <div class="section-body" id="body-education">
+      <div class="dynamic-list" id="edu-list"></div>
+      <button class="btn-add-item" onclick="addEducation()">+ Add Education</button>
+    </div>
+  </div>
+
+  <!-- Experience -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection('experience')">
+      <div class="section-title"><span class="section-icon">💼</span> Work Experience</div>
+      <span class="section-toggle open" id="toggle-experience">▼</span>
+    </div>
+    <div class="section-body" id="body-experience">
+      <div class="dynamic-list" id="exp-list"></div>
+      <button class="btn-add-item" onclick="addExperience()">+ Add Experience</button>
+    </div>
+  </div>
+
+  <!-- Projects -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection('projects')">
+      <div class="section-title"><span class="section-icon">🚀</span> Projects</div>
+      <span class="section-toggle open" id="toggle-projects">▼</span>
+    </div>
+    <div class="section-body" id="body-projects">
+      <div class="dynamic-list" id="proj-list"></div>
+      <button class="btn-add-item" onclick="addProject()">+ Add Project</button>
+    </div>
+  </div>
+
+  <!-- Skills -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection('skills')">
+      <div class="section-title"><span class="section-icon">⚡</span> Skills</div>
+      <span class="section-toggle open" id="toggle-skills">▼</span>
+    </div>
+    <div class="section-body" id="body-skills">
+      <div class="form-grid">
+        <div class="form-group full">
+          <div class="form-label">Technical Skills — press Enter or comma to add</div>
+          <div class="tags-wrap" id="skills-wrap" onclick="document.getElementById('skill-input').focus()">
+            <input type="text" class="tag-input" id="skill-input" placeholder="e.g. Python, Flask, Docker...">
+          </div>
+        </div>
+        <div class="form-group full">
+          <div class="form-label">Certifications</div>
+          <div class="tags-wrap" id="certs-wrap" onclick="document.getElementById('cert-input').focus()">
+            <input type="text" class="tag-input" id="cert-input" placeholder="e.g. AWS Solutions Architect...">
+          </div>
+        </div>
+        <div class="form-group full">
+          <div class="form-label">Languages</div>
+          <div class="tags-wrap" id="langs-wrap" onclick="document.getElementById('lang-input').focus()">
+            <input type="text" class="tag-input" id="lang-input" placeholder="e.g. English (Fluent), Urdu (Native)...">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job Preferences -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection('prefs')">
+      <div class="section-title"><span class="section-icon">🎯</span> Job Preferences</div>
+      <span class="section-toggle open" id="toggle-prefs">▼</span>
+    </div>
+    <div class="section-body" id="body-prefs">
+      <div class="form-grid">
+        <div class="form-group">
+          <div class="form-label">Job Type</div>
+          <select id="pref-type">
+            <option value="">Any</option>
+            <option value="fulltime">Full-time</option>
+            <option value="parttime">Part-time</option>
+            <option value="internship">Internship</option>
+            <option value="contract">Contract / Freelance</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Work Mode</div>
+          <select id="pref-mode">
+            <option value="">Any</option>
+            <option value="remote">Remote</option>
+            <option value="onsite">On-site</option>
+            <option value="hybrid">Hybrid</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Preferred Location</div>
+          <input type="text" id="pref-location" placeholder="e.g. Lahore, Remote, Pakistan">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Experience Level</div>
+          <select id="pref-level">
+            <option value="">Any</option>
+            <option value="internship">Internship / Student</option>
+            <option value="entry">Entry Level (0-2 years)</option>
+            <option value="mid">Mid Level (2-5 years)</option>
+            <option value="senior">Senior (5+ years)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Expected Salary (PKR/month)</div>
+          <input type="text" id="pref-salary" placeholder="e.g. 80,000 - 150,000">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Target Roles</div>
+          <input type="text" id="pref-roles" placeholder="e.g. Backend Developer, DevOps Engineer">
+        </div>
+        <div class="form-group full">
+          <div class="form-label">Industries of Interest</div>
+          <input type="text" id="pref-industries" placeholder="e.g. FinTech, SaaS, E-commerce, Gaming">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="save-bar">
+    <div class="save-status" id="save-status">✓ Profile saved</div>
+    <button class="btn-save" id="save-btn" onclick="saveProfile()">
+      <div class="save-spinner" id="save-spinner"></div>
+      <span id="save-text">Save Profile</span>
+    </button>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Tag inputs ────────────────────────────────────────────
+function setupTagInput(inputId, wrapId, listKey) {
+  const input = document.getElementById(inputId);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = input.value.trim().replace(/,$/, '');
+      if (val) addTag(wrapId, val, listKey);
+      input.value = '';
+    } else if (e.key === 'Backspace' && !input.value) {
+      const tags = document.querySelectorAll(`#${wrapId} .tag`);
+      if (tags.length) tags[tags.length - 1].remove();
+    }
+  });
+}
+
+function addTag(wrapId, text, listKey) {
+  const wrap = document.getElementById(wrapId);
+  const input = wrap.querySelector('.tag-input');
+  const tag = document.createElement('div');
+  tag.className = 'tag';
+  tag.dataset.key = listKey;
+  tag.innerHTML = `${esc(text)}<button onclick="this.parentElement.remove()" type="button">×</button>`;
+  wrap.insertBefore(tag, input);
+}
+
+function getTagsFromWrap(wrapId) {
+  return Array.from(document.querySelectorAll(`#${wrapId} .tag`)).map(t => t.childNodes[0].textContent.trim());
+}
+
+function setTagsInWrap(wrapId, listKey, values) {
+  const wrap = document.getElementById(wrapId);
+  wrap.querySelectorAll('.tag').forEach(t => t.remove());
+  values.forEach(v => addTag(wrapId, v, listKey));
+}
+
+setupTagInput('skill-input', 'skills-wrap', 'skills');
+setupTagInput('cert-input', 'certs-wrap', 'certs');
+setupTagInput('lang-input', 'langs-wrap', 'langs');
+
+// ── Section toggle ────────────────────────────────────────
+function toggleSection(id) {
+  const body = document.getElementById('body-' + id);
+  const toggle = document.getElementById('toggle-' + id);
+  body.classList.toggle('collapsed');
+  toggle.classList.toggle('open');
+}
+
+// ── Education ─────────────────────────────────────────────
+let eduItems = [];
+function addEducation(data = {}) {
+  const id = Date.now();
+  eduItems.push(id);
+  const list = document.getElementById('edu-list');
+  const div = document.createElement('div');
+  div.className = 'dynamic-item';
+  div.id = 'edu-' + id;
+  div.innerHTML = `
+    <button class="btn-remove-item" onclick="removeItem('edu-${id}')">×</button>
+    <div class="dynamic-item-grid">
+      <div class="form-group"><div class="form-label">University / Institution</div><input type="text" class="edu-school" placeholder="COMSATS University Islamabad" value="${esc(data.school||'')}"></div>
+      <div class="form-group"><div class="form-label">Degree</div><input type="text" class="edu-degree" placeholder="BS Computer Science" value="${esc(data.degree||'')}"></div>
+      <div class="form-group"><div class="form-label">Start Year</div><input type="text" class="edu-start" placeholder="2023" value="${esc(data.start||'')}"></div>
+      <div class="form-group"><div class="form-label">End Year (or Expected)</div><input type="text" class="edu-end" placeholder="2027" value="${esc(data.end||'')}"></div>
+      <div class="form-group"><div class="form-label">GPA / Grade</div><input type="text" class="edu-gpa" placeholder="3.5 / 4.0" value="${esc(data.gpa||'')}"></div>
+      <div class="form-group"><div class="form-label">Location</div><input type="text" class="edu-loc" placeholder="Lahore, Pakistan" value="${esc(data.location||'')}"></div>
+    </div>`;
+  list.appendChild(div);
+}
+
+function getEducation() {
+  return Array.from(document.querySelectorAll('#edu-list .dynamic-item')).map(d => ({
+    school: d.querySelector('.edu-school').value.trim(),
+    degree: d.querySelector('.edu-degree').value.trim(),
+    start:  d.querySelector('.edu-start').value.trim(),
+    end:    d.querySelector('.edu-end').value.trim(),
+    gpa:    d.querySelector('.edu-gpa').value.trim(),
+    location: d.querySelector('.edu-loc').value.trim(),
+  })).filter(e => e.school);
+}
+
+// ── Experience ────────────────────────────────────────────
+function addExperience(data = {}) {
+  const id = Date.now();
+  const list = document.getElementById('exp-list');
+  const div = document.createElement('div');
+  div.className = 'dynamic-item';
+  div.id = 'exp-' + id;
+  div.innerHTML = `
+    <button class="btn-remove-item" onclick="removeItem('exp-${id}')">×</button>
+    <div class="dynamic-item-grid">
+      <div class="form-group"><div class="form-label">Company</div><input type="text" class="exp-company" placeholder="Company Name" value="${esc(data.company||'')}"></div>
+      <div class="form-group"><div class="form-label">Role / Title</div><input type="text" class="exp-role" placeholder="Software Engineer" value="${esc(data.role||'')}"></div>
+      <div class="form-group"><div class="form-label">Start Date</div><input type="text" class="exp-start" placeholder="Jan 2024" value="${esc(data.start||'')}"></div>
+      <div class="form-group"><div class="form-label">End Date</div><input type="text" class="exp-end" placeholder="Dec 2024 or Present" value="${esc(data.end||'')}"></div>
+      <div class="form-group"><div class="form-label">Location</div><input type="text" class="exp-loc" placeholder="Lahore / Remote" value="${esc(data.location||'')}"></div>
+    </div>
+    <div class="form-group" style="margin-top:10px">
+      <div class="form-label">Key Achievements / Responsibilities</div>
+      <textarea class="exp-desc" rows="3" placeholder="• Built REST APIs with Flask serving 1000+ users&#10;• Reduced deployment time by 40% using Docker&#10;• Implemented CI/CD pipeline with GitHub Actions">${esc(data.description||'')}</textarea>
+    </div>`;
+  list.appendChild(div);
+}
+
+function getExperience() {
+  return Array.from(document.querySelectorAll('#exp-list .dynamic-item')).map(d => ({
+    company:     d.querySelector('.exp-company').value.trim(),
+    role:        d.querySelector('.exp-role').value.trim(),
+    start:       d.querySelector('.exp-start').value.trim(),
+    end:         d.querySelector('.exp-end').value.trim(),
+    location:    d.querySelector('.exp-loc').value.trim(),
+    description: d.querySelector('.exp-desc').value.trim(),
+  })).filter(e => e.company);
+}
+
+// ── Projects ──────────────────────────────────────────────
+function addProject(data = {}) {
+  const id = Date.now();
+  const list = document.getElementById('proj-list');
+  const div = document.createElement('div');
+  div.className = 'dynamic-item';
+  div.id = 'proj-' + id;
+  div.innerHTML = `
+    <button class="btn-remove-item" onclick="removeItem('proj-${id}')">×</button>
+    <div class="dynamic-item-grid">
+      <div class="form-group"><div class="form-label">Project Name</div><input type="text" class="proj-name" placeholder="JobTrack" value="${esc(data.name||'')}"></div>
+      <div class="form-group"><div class="form-label">Tech Stack</div><input type="text" class="proj-tech" placeholder="Flask, MongoDB, Docker, Azure AKS" value="${esc(data.tech||'')}"></div>
+      <div class="form-group"><div class="form-label">GitHub / Live URL</div><input type="url" class="proj-url" placeholder="https://github.com/..." value="${esc(data.url||'')}"></div>
+      <div class="form-group"><div class="form-label">Year</div><input type="text" class="proj-year" placeholder="2024" value="${esc(data.year||'')}"></div>
+    </div>
+    <div class="form-group" style="margin-top:10px">
+      <div class="form-label">Description</div>
+      <textarea class="proj-desc" rows="2" placeholder="What does it do? What problem does it solve? What was your role?">${esc(data.description||'')}</textarea>
+    </div>`;
+  list.appendChild(div);
+}
+
+function getProjects() {
+  return Array.from(document.querySelectorAll('#proj-list .dynamic-item')).map(d => ({
+    name:        d.querySelector('.proj-name').value.trim(),
+    tech:        d.querySelector('.proj-tech').value.trim(),
+    url:         d.querySelector('.proj-url').value.trim(),
+    year:        d.querySelector('.proj-year').value.trim(),
+    description: d.querySelector('.proj-desc').value.trim(),
+  })).filter(p => p.name);
+}
+
+function removeItem(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  updateProgress();
+}
+
+// ── Progress calculation ──────────────────────────────────
+function updateProgress() {
+  const checks = [
+    { key: 'Name',        val: document.getElementById('p-name').value.trim() },
+    { key: 'Email',       val: document.getElementById('p-email').value.trim() },
+    { key: 'Summary',     val: document.getElementById('p-summary').value.trim() },
+    { key: 'Education',   val: document.querySelectorAll('#edu-list .dynamic-item').length > 0 },
+    { key: 'Skills',      val: document.querySelectorAll('#skills-wrap .tag').length > 0 },
+    { key: 'Projects',    val: document.querySelectorAll('#proj-list .dynamic-item').length > 0 },
+    { key: 'Job Type',    val: document.getElementById('pref-type').value },
+    { key: 'Location',    val: document.getElementById('pref-location').value.trim() },
+  ];
+  const done = checks.filter(c => !!c.val).length;
+  const pct = Math.round((done / checks.length) * 100);
+  const circumference = 169.6;
+  const offset = circumference - (pct / 100) * circumference;
+  document.getElementById('progress-fill').style.strokeDashoffset = offset;
+  document.getElementById('progress-pct').textContent = pct + '%';
+  const missing = checks.filter(c => !c.val).map(c => c.key);
+  document.getElementById('progress-missing').innerHTML = missing.map(m => `<span class="missing-pill">${m}</span>`).join('');
+}
+
+// Add progress listeners
+['p-name','p-email','p-summary','pref-type','pref-location'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateProgress);
+});
+
+// ── Save / Load ───────────────────────────────────────────
+async function saveProfile() {
+  const profile = {
+    personal: {
+      name:     document.getElementById('p-name').value.trim(),
+      email:    document.getElementById('p-email').value.trim(),
+      phone:    document.getElementById('p-phone').value.trim(),
+      location: document.getElementById('p-location').value.trim(),
+      linkedin: document.getElementById('p-linkedin').value.trim(),
+      github:   document.getElementById('p-github').value.trim(),
+      summary:  document.getElementById('p-summary').value.trim(),
+    },
+    education:   getEducation(),
+    experience:  getExperience(),
+    projects:    getProjects(),
+    skills:      getTagsFromWrap('skills-wrap'),
+    certifications: getTagsFromWrap('certs-wrap'),
+    languages:   getTagsFromWrap('langs-wrap'),
+    preferences: {
+      job_type:   document.getElementById('pref-type').value,
+      work_mode:  document.getElementById('pref-mode').value,
+      location:   document.getElementById('pref-location').value.trim(),
+      level:      document.getElementById('pref-level').value,
+      salary:     document.getElementById('pref-salary').value.trim(),
+      roles:      document.getElementById('pref-roles').value.trim(),
+      industries: document.getElementById('pref-industries').value.trim(),
+    }
+  };
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  document.getElementById('save-spinner').classList.add('show');
+  document.getElementById('save-text').textContent = 'Saving...';
+
+  try {
+    const res = await fetch('/api/profile', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(profile)
+    });
+    if (res.ok) {
+      const st = document.getElementById('save-status');
+      st.classList.add('show');
+      setTimeout(() => st.classList.remove('show'), 3000);
+      showToast('Profile saved successfully!');
+    } else {
+      showToast('Failed to save. Please try again.');
+    }
+  } catch(e) {
+    showToast('Error saving profile.');
+  }
+
+  btn.disabled = false;
+  document.getElementById('save-spinner').classList.remove('show');
+  document.getElementById('save-text').textContent = 'Save Profile';
+}
+
+async function loadProfile() {
+  try {
+    const res = await fetch('/api/profile');
+    if (!res.ok) return;
+    const p = await res.json();
+    if (!p || !p.personal) return;
+
+    // Personal
+    const per = p.personal || {};
+    document.getElementById('p-name').value     = per.name || '';
+    document.getElementById('p-email').value    = per.email || '';
+    document.getElementById('p-phone').value    = per.phone || '';
+    document.getElementById('p-location').value = per.location || '';
+    document.getElementById('p-linkedin').value = per.linkedin || '';
+    document.getElementById('p-github').value   = per.github || '';
+    document.getElementById('p-summary').value  = per.summary || '';
+
+    // Education
+    (p.education || []).forEach(e => addEducation(e));
+
+    // Experience
+    (p.experience || []).forEach(e => addExperience(e));
+
+    // Projects
+    (p.projects || []).forEach(e => addProject(e));
+
+    // Tags
+    setTagsInWrap('skills-wrap', 'skills', p.skills || []);
+    setTagsInWrap('certs-wrap', 'certs', p.certifications || []);
+    setTagsInWrap('langs-wrap', 'langs', p.languages || []);
+
+    // Preferences
+    const pref = p.preferences || {};
+    document.getElementById('pref-type').value       = pref.job_type || '';
+    document.getElementById('pref-mode').value       = pref.work_mode || '';
+    document.getElementById('pref-location').value   = pref.location || '';
+    document.getElementById('pref-level').value      = pref.level || '';
+    document.getElementById('pref-salary').value     = pref.salary || '';
+    document.getElementById('pref-roles').value      = pref.roles || '';
+    document.getElementById('pref-industries').value = pref.industries || '';
+
+    updateProgress();
+  } catch(e) {
+    console.error('Failed to load profile', e);
+  }
+}
+
+async function logout() {
+  await fetch('/api/logout', {method:'POST'});
+  window.location.href = '/login';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Observe dynamic list changes for progress
+new MutationObserver(updateProgress).observe(document.getElementById('edu-list'), {childList: true});
+new MutationObserver(updateProgress).observe(document.getElementById('proj-list'), {childList: true});
+new MutationObserver(updateProgress).observe(document.getElementById('skills-wrap'), {childList: true});
+
+loadProfile();
+</script>
+</body>
+</html>
