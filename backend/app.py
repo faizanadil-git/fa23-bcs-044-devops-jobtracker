@@ -20,7 +20,7 @@ app.secret_key = os.environ.get("SECRET_KEY")
 MONGO_URI = os.environ.get("MONGO_URI")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GEMINI_URL = "https://api.groq.com/openai/v1/chat/completions"
-JSEARCH_KEY = os.environ.get("JSEARCH_KEY")
+SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
 
 
 # COMMENT JUST FOR CICD PIPELINING CHECK
@@ -97,7 +97,7 @@ def gemini(prompt):
         "Authorization": f"Bearer {GEMINI_API_KEY}",
         "Content-Type": "application/json"
     }
-    r = requests.post(GEMINI_URL, json=payload, headers=headers, timeout=30)
+    r = requests.post(GEMINI_URL, json=payload, headers=headers, timeout=60)
     if r.status_code != 200:
         return f"API error: {r.status_code} — {r.text[:200]}"
     try:
@@ -724,6 +724,234 @@ def get_profile_summary():
         "skills": p.get("skills", []),
         "preferences": prefs,
     })
+
+
+# ── Job Feed Page Route ───────────────────────────────────────────────────────
+@app.route("/jobs/feed")
+@login_required
+def job_feed_page():
+    return render_template("feed.html", username=session.get("username"))
+
+
+@app.route("/api/jobs/feed", methods=["POST"])
+@api_login_required
+def fetch_job_feed():
+    data            = request.json or {}
+    query           = data.get("query", "").strip()
+    location        = data.get("location", "").strip()
+    employment_type = data.get("employment_type", "")
+    date_posted     = data.get("date_posted", "week")
+
+    # Get user profile
+    user_profile = profiles.find_one({"user_id": uid()})
+
+    # Build query from profile if nothing given
+    if not query and user_profile:
+        prefs  = user_profile.get("preferences", {})
+        roles  = prefs.get("roles", "")
+        skills = user_profile.get("skills", [])
+        query  = roles.split(",")[0].strip() if roles else (skills[0] if skills else "Software Engineer")
+        if not location:
+            location = prefs.get("location", "Pakistan")
+        if not employment_type:
+            type_map = {"fulltime": "full_time", "parttime": "part_time",
+                        "internship": "intern", "contract": "contractor"}
+            employment_type = type_map.get(prefs.get("job_type", ""), "")
+
+    if not query:
+        query = "Software Engineer"
+
+    # Map date filter
+    chips_map = {
+        "today":  "date_posted:today",
+        "3days":  "date_posted:3days",
+        "week":   "date_posted:week",
+        "month":  "date_posted:month",
+    }
+    date_chip = chips_map.get(date_posted, "date_posted:week")
+
+    # Add employment type chip
+    type_chip = ""
+    if employment_type == "full_time":
+        type_chip = "employment_type:FULLTIME"
+    elif employment_type == "part_time":
+        type_chip = "employment_type:PARTTIME"
+    elif employment_type == "intern":
+        type_chip = "employment_type:INTERN"
+    elif employment_type == "contractor":
+        type_chip = "employment_type:CONTRACTOR"
+
+    chips = date_chip
+    if type_chip:
+        chips += f",{type_chip}"
+
+    # Build SerpAPI params
+    params = {
+        "engine":   "google_jobs",
+        "q":        f"{query} {location}".strip(),
+        "hl":       "en",
+        "chips":    chips,
+        "api_key":  SERPAPI_KEY,
+        "num":      20,
+    }
+
+    try:
+        resp = requests.get(
+            "https://serpapi.com/search",
+            params=params,
+            timeout=20
+        )
+        resp.raise_for_status()
+        result_data = resp.json()
+        raw_jobs = result_data.get("jobs_results", [])
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Search timed out. Please try again."}), 502
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Failed to fetch jobs: {str(e)[:150]}"}), 502
+    except Exception as e:
+        return jsonify({"error": f"Unexpected error: {str(e)[:100]}"}), 500
+
+    if not raw_jobs:
+        return jsonify({"jobs": [], "tracked_ids": []})
+
+    # Normalize SerpAPI Google Jobs response
+    normalized = []
+    for j in raw_jobs[:20]:
+        # Get salary from extensions
+        extensions = j.get("detected_extensions", {})
+        salary = extensions.get("salary", "")
+
+        # Get posted date
+        posted_str = extensions.get("posted_at", "")
+        if not posted_str:
+            posted_str = j.get("job_highlights", [{}])[0].get("items", [""])[0] if j.get("job_highlights") else ""
+
+        # Get description from highlights
+        desc = ""
+        for highlight in j.get("job_highlights", []):
+            items = highlight.get("items", [])
+            if items:
+                desc = " | ".join(items[:3])
+                break
+        if not desc:
+            desc = j.get("description", "")[:500]
+
+        # Get apply link
+        apply_link = ""
+        apply_options = j.get("apply_options", [])
+        if apply_options:
+            apply_link = apply_options[0].get("link", "")
+
+        normalized.append({
+            "job_id":          j.get("job_id", str(len(normalized))),
+            "title":           j.get("title", ""),
+            "company":         j.get("company_name", ""),
+            "location":        j.get("location", ""),
+            "employment_type": extensions.get("work_from_home", False) and "Remote" or
+                               extensions.get("schedule_type", ""),
+            "salary":          salary,
+            "description":     desc[:500],
+            "url":             apply_link,
+            "posted":          posted_str,
+            "posted_at":       posted_str,
+            "match_score":     None,
+            "match_reason":    None,
+        })
+
+    # AI Match Scoring
+    if user_profile and user_profile.get("skills"):
+        normalized = _score_jobs_with_ai(normalized, user_profile)
+
+    # Check already tracked
+    existing_jobs = list(jobs.find({"user_id": uid()}, {"link": 1}))
+    tracked_links = {j.get("link", "") for j in existing_jobs}
+    tracked_ids   = [j["job_id"] for j in normalized if j["url"] and j["url"] in tracked_links]
+
+    return jsonify({"jobs": normalized, "tracked_ids": tracked_ids})
+def _score_jobs_with_ai(job_list, user_profile):
+    """Score all jobs against user profile in one AI call."""
+    skills      = user_profile.get("skills", [])
+    experience  = user_profile.get("experience", [])
+    projects    = user_profile.get("projects", [])
+    prefs       = user_profile.get("preferences", {})
+    education   = user_profile.get("education", [])
+
+    # Build compact profile string
+    profile_str = f"""Skills: {', '.join(skills[:20])}
+Experience: {'; '.join([f"{e.get('role','')} at {e.get('company','')}" for e in experience[:3]])}
+Projects: {'; '.join([f"{p.get('name','')} ({p.get('tech','')})" for p in projects[:3]])}
+Education: {'; '.join([f"{e.get('degree','')} at {e.get('school','')}" for e in education[:2]])}
+Preferred job type: {prefs.get('job_type', 'any')}
+Preferred location: {prefs.get('location', 'any')}
+Target roles: {prefs.get('roles', 'any')}"""
+
+    # Build jobs list string
+    jobs_str = "\n".join([
+        f"{i+1}. {j['title']} at {j['company']} ({j['location']}) — {j['description'][:200]}"
+        for i, j in enumerate(job_list)
+    ])
+
+    prompt = f"""You are a career matching AI. Score how well each job matches this candidate's profile.
+
+CANDIDATE PROFILE:
+{profile_str}
+
+JOBS TO SCORE:
+{jobs_str}
+
+Return ONLY a valid JSON array with exactly {len(job_list)} objects, one per job, in the same order:
+[
+  {{"score": 85, "reason": "Strong Python/Flask match, remote aligns with preference"}},
+  {{"score": 60, "reason": "Partial match — requires React which candidate lacks"}},
+  ...
+]
+
+Rules:
+- score is 0-100 integer
+- reason is max 10 words explaining the match
+- Return ONLY the JSON array, no explanation, no markdown"""
+
+    try:
+        raw = gemini(prompt)
+        # Clean response
+        raw = raw.strip()
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
+        raw = re.sub(r"```\s*$", "", raw, flags=re.MULTILINE)
+        # Find JSON array
+        match = re.search(r"\[.*\]", raw, re.DOTALL)
+        if not match:
+            return job_list
+        scores = json.loads(match.group())
+        for i, job in enumerate(job_list):
+            if i < len(scores):
+                job["match_score"]  = int(scores[i].get("score", 0))
+                job["match_reason"] = str(scores[i].get("reason", ""))
+    except Exception:
+        pass  # return unscored jobs if AI fails
+
+    return job_list
+
+
+
+
+
+def _format_posted(iso_str):
+    if not iso_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        days = (datetime.now(timezone.utc) - dt).days
+        if days == 0:
+            return "Today"
+        if days == 1:
+            return "Yesterday"
+        if days < 7:
+            return f"{days} days ago"
+        if days < 30:
+            return f"{days // 7}w ago"
+        return dt.strftime("%b %d")
+    except Exception:
+        return ""
 
 
 if __name__ == "__main__":
