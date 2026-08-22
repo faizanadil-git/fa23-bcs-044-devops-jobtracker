@@ -12,7 +12,8 @@ from urllib.parse import urlparse
 import json
 import re
 from dotenv import load_dotenv
-
+from flask import send_file
+import io
 load_dotenv()  # loads .env file automatically
 
 app = Flask(__name__)
@@ -953,6 +954,503 @@ def _format_posted(iso_str):
     except Exception:
         return ""
 
+
+
+
+# ── CV Generator Page Route ───────────────────────────────────────────────────
+
+@app.route("/cv/<job_id>")
+@login_required
+def cv_page(job_id):
+    job = jobs.find_one({"_id": ObjectId(job_id), "user_id": uid()})
+    if not job:
+        return redirect(url_for("index"))
+    return render_template("cv.html", username=session.get("username"), job=serialize(job))
+
+
+# ── CV Generator API ──────────────────────────────────────────────────────────
+
+@app.route("/api/ai/cv/generate", methods=["POST"])
+@api_login_required
+def ai_cv_generate():
+    """
+    1. Load user profile from MongoDB
+    2. Get job description from request
+    3. AI tailors the profile to match the JD (ATS keywords)
+    4. Returns structured CV data for preview + download
+    """
+    data     = request.json or {}
+    jd       = data.get("job_description", "").strip()
+    length   = data.get("length", "1.5")
+
+    # Load full profile
+    profile = profiles.find_one({"user_id": uid()})
+    if not profile:
+        return jsonify({"error": "Please complete your profile first before generating a CV."}), 400
+
+    per    = profile.get("personal", {})
+    exp    = profile.get("experience", [])
+    proj   = profile.get("projects", [])
+    edu    = profile.get("education", [])
+    skills = profile.get("skills", [])
+    certs  = profile.get("certifications", [])
+    langs  = profile.get("languages", [])
+
+    if not per.get("name"):
+        return jsonify({"error": "Please add your name to your profile first."}), 400
+
+    # Build profile summary for AI
+    profile_text = f"""
+PERSONAL:
+Name: {per.get('name', '')}
+Email: {per.get('email', '')}
+Phone: {per.get('phone', '')}
+Location: {per.get('location', '')}
+LinkedIn: {per.get('linkedin', '')}
+GitHub: {per.get('github', '')}
+Summary: {per.get('summary', '')}
+
+EDUCATION:
+{chr(10).join([f"- {e.get('degree','')} at {e.get('school','')} ({e.get('start','')}–{e.get('end','')}) GPA: {e.get('gpa','')}" for e in edu])}
+
+EXPERIENCE:
+{chr(10).join([f"- {e.get('role','')} at {e.get('company','')} ({e.get('start','')}–{e.get('end','Present')}): {e.get('description','')}" for e in exp])}
+
+PROJECTS:
+{chr(10).join([f"- {p.get('name','')} ({p.get('tech','')}): {p.get('description','')}" for p in proj])}
+
+SKILLS: {', '.join(skills)}
+CERTIFICATIONS: {', '.join(certs)}
+LANGUAGES: {', '.join(langs)}
+"""
+
+    length_instruction = "Keep the CV to exactly 1 page — be concise." if length == "1" else \
+                         "Keep the CV to 1 to 1.5 pages — comprehensive but tight."
+
+    prompt = f"""You are an expert ATS-optimized CV writer. Create a tailored CV for this candidate.
+
+CANDIDATE PROFILE:
+{profile_text}
+
+JOB DESCRIPTION TO OPTIMIZE FOR:
+{jd[:3000] if jd else "General professional CV — use best judgment for the candidate's field."}
+
+TASK:
+1. Rewrite the professional summary to directly address this role
+2. Reorder and rewrite experience bullet points to highlight most relevant achievements using strong action verbs and metrics
+3. Reorder projects to show most relevant first
+4. Organize skills by category (Languages, Frameworks, Tools, Cloud/DevOps, etc.)
+5. Extract 8-12 ATS keywords from the job description to naturally include
+6. {length_instruction}
+
+Return ONLY a valid JSON object with this exact structure:
+{{
+  "personal": {{
+    "name": "full name",
+    "tagline": "one line role/title matching the job",
+    "email": "email",
+    "phone": "phone",
+    "location": "city, country",
+    "linkedin": "linkedin url or username",
+    "github": "github url or username"
+  }},
+  "summary": "2-3 sentence tailored professional summary",
+  "skills": {{
+    "Languages": ["Python", "JavaScript"],
+    "Frameworks": ["Flask", "React"],
+    "Tools": ["Docker", "Git"],
+    "Cloud & DevOps": ["Azure", "Kubernetes", "CI/CD"]
+  }},
+  "experience": [
+    {{
+      "role": "Job Title",
+      "company": "Company Name",
+      "location": "City",
+      "start": "Jan 2024",
+      "end": "Present",
+      "bullets": [
+        "Strong action verb + what you did + measurable result",
+        "Another achievement"
+      ]
+    }}
+  ],
+  "projects": [
+    {{
+      "name": "Project Name",
+      "tech": "Flask, MongoDB, Docker",
+      "url": "github.com/...",
+      "year": "2024",
+      "bullets": [
+        "What it does and impact",
+        "Key technical achievement"
+      ]
+    }}
+  ],
+  "education": [
+    {{
+      "degree": "BS Computer Science",
+      "school": "COMSATS University",
+      "location": "Lahore",
+      "start": "2023",
+      "end": "2027",
+      "gpa": "3.5"
+    }}
+  ],
+  "certifications": ["cert1", "cert2"],
+  "languages": ["English (Fluent)", "Urdu (Native)"],
+  "ats_keywords": ["keyword1", "keyword2", "keyword3"]
+}}
+
+Rules:
+- Return ONLY the JSON, no markdown, no explanation
+- Every bullet point must start with a strong action verb (Built, Designed, Deployed, Implemented, etc.)
+- Include metrics where possible (reduced by X%, served X users, etc.)
+- Keep bullets concise — 1 line each
+- Skills must be organized into exactly the categories that make sense for this candidate
+- ATS keywords must come directly from the job description"""
+
+    raw = gemini(prompt)
+
+    # Parse JSON
+    try:
+        raw = raw.strip()
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
+        raw = re.sub(r"```\s*$", "", raw, flags=re.MULTILINE)
+        match_obj = re.search(r"\{.*\}", raw, re.DOTALL)
+        if not match_obj:
+            return jsonify({"error": "AI could not generate CV structure. Please try again."}), 500
+        cv_data = json.loads(match_obj.group())
+    except Exception as e:
+        return jsonify({"error": f"Failed to parse CV data: {str(e)}"}), 500
+
+    return jsonify({"cv_data": cv_data})
+
+
+# ── CV Download (PDF or DOCX) ─────────────────────────────────────────────────
+
+@app.route("/api/ai/cv/download", methods=["POST"])
+@api_login_required
+def ai_cv_download():
+    """Generate and return the CV as PDF or DOCX file."""
+    data     = request.json or {}
+    cv_data  = data.get("cv_data", {})
+    fmt      = data.get("format", "pdf")
+    filename = data.get("filename", "CV")
+
+    if not cv_data:
+        return jsonify({"error": "No CV data provided"}), 400
+
+    if fmt == "pdf":
+        pdf_buffer = _generate_cv_pdf(cv_data)
+        return send_file(
+            pdf_buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"{filename}.pdf"
+        )
+    else:
+        docx_buffer = _generate_cv_docx(cv_data)
+        return send_file(
+            docx_buffer,
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            as_attachment=True,
+            download_name=f"{filename}.docx"
+        )
+
+
+def _generate_cv_pdf(cv):
+    """Generate ATS-compatible PDF CV using ReportLab."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER
+
+    buffer = io.BytesIO()
+
+    # Page setup — tight margins for 1-1.5 page
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=15*mm,
+        rightMargin=15*mm,
+        topMargin=14*mm,
+        bottomMargin=14*mm,
+    )
+
+    # Colors
+    BLACK   = HexColor('#1a1a1a')
+    DARK    = HexColor('#333333')
+    MEDIUM  = HexColor('#555555')
+    LIGHT   = HexColor('#777777')
+    ACCENT  = HexColor('#1a1a1a')
+
+    # Styles
+    def style(name, **kwargs):
+        return ParagraphStyle(name, **kwargs)
+
+    s_name = style('name', fontName='Helvetica-Bold', fontSize=18, textColor=BLACK, spaceAfter=1*mm)
+    s_tagline = style('tagline', fontName='Helvetica', fontSize=10, textColor=MEDIUM, spaceAfter=2*mm)
+    s_contact = style('contact', fontName='Helvetica', fontSize=8.5, textColor=DARK, spaceAfter=3*mm)
+    s_sec_title = style('sec_title', fontName='Helvetica-Bold', fontSize=9, textColor=BLACK,
+                        spaceBefore=4*mm, spaceAfter=1.5*mm, textTransform='uppercase', letterSpacing=0.5)
+    s_summary = style('summary', fontName='Helvetica', fontSize=9.5, textColor=DARK,
+                      leading=14, spaceAfter=2*mm)
+    s_item_title = style('item_title', fontName='Helvetica-Bold', fontSize=10, textColor=BLACK, spaceAfter=0.5*mm)
+    s_item_sub = style('item_sub', fontName='Helvetica-Oblique', fontSize=9, textColor=MEDIUM, spaceAfter=0.5*mm)
+    s_bullet = style('bullet', fontName='Helvetica', fontSize=9, textColor=DARK,
+                     leading=13, leftIndent=8*mm, firstLineIndent=-4*mm, spaceAfter=1*mm)
+    s_skill_cat = style('skill_cat', fontName='Helvetica-Bold', fontSize=9, textColor=BLACK, spaceAfter=1*mm)
+    s_skill_val = style('skill_val', fontName='Helvetica', fontSize=9, textColor=DARK, spaceAfter=2*mm)
+    s_date = style('date', fontName='Helvetica', fontSize=9, textColor=LIGHT, alignment=2)
+
+    story = []
+    per = cv.get('personal', {})
+
+    # Name
+    story.append(Paragraph(per.get('name', ''), s_name))
+
+    # Tagline
+    if per.get('tagline'):
+        story.append(Paragraph(per['tagline'], s_tagline))
+
+    # Contact line
+    contact_parts = []
+    if per.get('email'):    contact_parts.append(per['email'])
+    if per.get('phone'):    contact_parts.append(per['phone'])
+    if per.get('location'): contact_parts.append(per['location'])
+    if per.get('linkedin'): contact_parts.append(per['linkedin'])
+    if per.get('github'):   contact_parts.append(per['github'])
+    if contact_parts:
+        story.append(Paragraph('  |  '.join(contact_parts), s_contact))
+
+    story.append(HRFlowable(width="100%", thickness=1.5, color=BLACK, spaceAfter=3*mm))
+
+    # Summary
+    if cv.get('summary'):
+        story.append(Paragraph('PROFESSIONAL SUMMARY', s_sec_title))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=HexColor('#dddddd'), spaceAfter=2*mm))
+        story.append(Paragraph(cv['summary'], s_summary))
+
+    # Skills
+    skills = cv.get('skills', {})
+    if skills:
+        story.append(Paragraph('TECHNICAL SKILLS', s_sec_title))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=HexColor('#dddddd'), spaceAfter=2*mm))
+        for cat, items in skills.items():
+            if items:
+                story.append(Paragraph(f"<b>{cat}:</b> {', '.join(items)}", s_skill_val))
+
+    # Experience
+    exp = cv.get('experience', [])
+    if exp:
+        story.append(Paragraph('WORK EXPERIENCE', s_sec_title))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=HexColor('#dddddd'), spaceAfter=2*mm))
+        for e in exp:
+            date_str = f"{e.get('start', '')}{'  –  ' + e.get('end', '') if e.get('end') else ''}"
+            story.append(Paragraph(
+                f"<b>{e.get('role', '')}</b>  |  {e.get('company', '')}"
+                f"{'  ·  ' + e.get('location', '') if e.get('location') else ''}"
+                f"  <font color='#888888' size='8'>{date_str}</font>",
+                s_item_title
+            ))
+            for b in e.get('bullets', []):
+                story.append(Paragraph(f"• {b}", s_bullet))
+            story.append(Spacer(1, 1*mm))
+
+    # Projects
+    proj = cv.get('projects', [])
+    if proj:
+        story.append(Paragraph('PROJECTS', s_sec_title))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=HexColor('#dddddd'), spaceAfter=2*mm))
+        for p in proj:
+            tech_str = f"  |  <i>{p.get('tech', '')}</i>" if p.get('tech') else ''
+            year_str = f"  <font color='#888888' size='8'>{p.get('year', '')}</font>" if p.get('year') else ''
+            story.append(Paragraph(
+                f"<b>{p.get('name', '')}</b>{tech_str}{year_str}",
+                s_item_title
+            ))
+            if p.get('url'):
+                story.append(Paragraph(p['url'], s_item_sub))
+            for b in p.get('bullets', []):
+                story.append(Paragraph(f"• {b}", s_bullet))
+            story.append(Spacer(1, 1*mm))
+
+    # Education
+    edu = cv.get('education', [])
+    if edu:
+        story.append(Paragraph('EDUCATION', s_sec_title))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=HexColor('#dddddd'), spaceAfter=2*mm))
+        for e in edu:
+            date_str = f"{e.get('start', '')}{'  –  ' + e.get('end', '') if e.get('end') else ''}"
+            gpa_str = f"  ·  GPA: {e['gpa']}" if e.get('gpa') else ''
+            story.append(Paragraph(
+                f"<b>{e.get('degree', '')}</b>  |  {e.get('school', '')}"
+                f"{'  ·  ' + e.get('location', '') if e.get('location') else ''}{gpa_str}"
+                f"  <font color='#888888' size='8'>{date_str}</font>",
+                s_item_title
+            ))
+            story.append(Spacer(1, 1.5*mm))
+
+    # Certifications
+    certs = cv.get('certifications', [])
+    if certs:
+        story.append(Paragraph('CERTIFICATIONS', s_sec_title))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=HexColor('#dddddd'), spaceAfter=2*mm))
+        story.append(Paragraph('  |  '.join(certs), s_skill_val))
+
+    # Languages
+    langs = cv.get('languages', [])
+    if langs:
+        story.append(Paragraph('LANGUAGES', s_sec_title))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=HexColor('#dddddd'), spaceAfter=2*mm))
+        story.append(Paragraph('  |  '.join(langs), s_skill_val))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+def _generate_cv_docx(cv):
+    """Generate ATS-compatible Word CV using python-docx."""
+    try:
+        from docx import Document
+        from docx.shared import Pt, Cm, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+    except ImportError:
+        # Fall back to PDF if docx not installed
+        return _generate_cv_pdf(cv)
+
+    doc = Document()
+
+    # Page margins
+    for section in doc.sections:
+        section.top_margin    = Cm(1.5)
+        section.bottom_margin = Cm(1.5)
+        section.left_margin   = Cm(1.8)
+        section.right_margin  = Cm(1.8)
+
+    per = cv.get('personal', {})
+
+    # Name
+    name_para = doc.add_paragraph()
+    name_run = name_para.add_run(per.get('name', ''))
+    name_run.bold = True
+    name_run.font.size = Pt(18)
+    name_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+    # Tagline
+    if per.get('tagline'):
+        tl = doc.add_paragraph()
+        tl_run = tl.add_run(per['tagline'])
+        tl_run.font.size = Pt(10)
+        tl_run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+
+    # Contact
+    contact_parts = [per.get(k, '') for k in ['email','phone','location','linkedin','github'] if per.get(k)]
+    if contact_parts:
+        cp = doc.add_paragraph()
+        cr = cp.add_run('  |  '.join(contact_parts))
+        cr.font.size = Pt(8.5)
+        cr.font.color.rgb = RGBColor(0x44, 0x44, 0x44)
+
+    def add_section(title, content_fn):
+        # Section title
+        p = doc.add_paragraph()
+        run = p.add_run(title)
+        run.bold = True
+        run.font.size = Pt(9)
+        run.font.color.rgb = RGBColor(0x1a, 0x1a, 0x1a)
+        p.paragraph_format.space_before = Pt(8)
+        # HR line via border
+        pPr = p._p.get_or_add_pPr()
+        pBdr = OxmlElement('w:pBdr')
+        bottom = OxmlElement('w:bottom')
+        bottom.set(qn('w:val'), 'single')
+        bottom.set(qn('w:sz'), '6')
+        bottom.set(qn('w:space'), '1')
+        bottom.set(qn('w:color'), 'CCCCCC')
+        pBdr.append(bottom)
+        pPr.append(pBdr)
+        content_fn()
+
+    # Summary
+    if cv.get('summary'):
+        def add_summary():
+            p = doc.add_paragraph(cv['summary'])
+            p.runs[0].font.size = Pt(9.5)
+        add_section('PROFESSIONAL SUMMARY', add_summary)
+
+    # Skills
+    skills = cv.get('skills', {})
+    if skills:
+        def add_skills():
+            for cat, items in skills.items():
+                if items:
+                    p = doc.add_paragraph()
+                    r1 = p.add_run(f"{cat}: ")
+                    r1.bold = True
+                    r1.font.size = Pt(9)
+                    r2 = p.add_run(', '.join(items))
+                    r2.font.size = Pt(9)
+        add_section('TECHNICAL SKILLS', add_skills)
+
+    # Experience
+    exp = cv.get('experience', [])
+    if exp:
+        def add_exp():
+            for e in exp:
+                p = doc.add_paragraph()
+                r = p.add_run(f"{e.get('role','')}  |  {e.get('company','')}")
+                r.bold = True
+                r.font.size = Pt(10)
+                date_r = p.add_run(f"  {e.get('start','')}–{e.get('end','')}")
+                date_r.font.size = Pt(8.5)
+                date_r.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+                for b in e.get('bullets', []):
+                    bp = doc.add_paragraph(b, style='List Bullet')
+                    bp.runs[0].font.size = Pt(9)
+        add_section('WORK EXPERIENCE', add_exp)
+
+    # Projects
+    proj = cv.get('projects', [])
+    if proj:
+        def add_proj():
+            for p_item in proj:
+                p = doc.add_paragraph()
+                r = p.add_run(p_item.get('name', ''))
+                r.bold = True
+                r.font.size = Pt(10)
+                if p_item.get('tech'):
+                    tr = p.add_run(f"  |  {p_item['tech']}")
+                    tr.font.size = Pt(9)
+                    tr.italic = True
+                for b in p_item.get('bullets', []):
+                    bp = doc.add_paragraph(b, style='List Bullet')
+                    bp.runs[0].font.size = Pt(9)
+        add_section('PROJECTS', add_proj)
+
+    # Education
+    edu = cv.get('education', [])
+    if edu:
+        def add_edu():
+            for e in edu:
+                p = doc.add_paragraph()
+                r = p.add_run(f"{e.get('degree','')}  |  {e.get('school','')}")
+                r.bold = True
+                r.font.size = Pt(10)
+                date_r = p.add_run(f"  {e.get('start','')}–{e.get('end','')}")
+                date_r.font.size = Pt(8.5)
+                date_r.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+        add_section('EDUCATION', add_edu)
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

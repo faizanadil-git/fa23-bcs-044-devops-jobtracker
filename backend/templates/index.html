@@ -389,6 +389,7 @@ function jobCard(j){
     ${cl.length?`<div class="check-summary">Tasks: <span>${done}/${cl.length}</span> done</div>`:''}
     <div class="card-tools" onclick="event.stopPropagation()">
       <a class="tool-btn" href="/coverletter/${j._id}">✉ Cover Letter</a>
+      <a class="tool-btn" href="/cv/${j._id}">📄 Generate CV</a>
       ${isActive?`<a class="tool-btn" href="/culture/${j._id}">Culture Fit</a>`:''}
       ${j.status==='Interview'?`<a class="tool-btn" href="/interview/${j._id}">Mock Interview</a><a class="tool-btn" href="/debrief/${j._id}">Debrief</a>`:''}
     </div>
